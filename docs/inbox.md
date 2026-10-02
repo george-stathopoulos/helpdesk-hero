@@ -49,10 +49,18 @@ The email text stays available on the ticket, so the customer can copy it again 
 
 ## Notifications
 
-New tickets and customer replies are emailed to the team email address under **Settings**. The customer is emailed when you reply.
+When a customer opens a ticket or replies, your team sees it in WordPress straight away:
+
+- a count on **Support Hub** in the menu, and **1 new ticket** in the admin bar;
+- a notice on other dashboard screens with a button to open the ticket. **Dismiss** hides it until the next ticket or reply arrives;
+- **New** and **Customer replied** labels in the Inbox, and a message in the hub if something arrives while it's open.
+
+![The new-ticket notice, the Support Hub count and the admin bar link.](images/hub-new-ticket-notice.png)
+
+A ticket stops counting as new once anyone on the team opens it. New tickets and customer replies are also emailed to the team email address under **Settings**, and the customer is emailed when you reply.
 
 ## AI triage (Pro)
 
-With [Pro](pro.md#ai-triage), and WordPress 7.0's AI Client connected on your hub site, every new ticket gets a short brief: what the customer is asking, the likely cause from the diagnostics, suspects, and first steps to try. **Draft with AI** writes a reply you edit before sending. Nothing goes to an AI provider unless triage is on or someone presses an AI button. It works with any provider under **Settings › Connectors**, including the free, local [AI Provider for WebLLM](pro.md#private-local-ai-with-webllm).
+With [Pro](pro.md#ai-triage), and WordPress 7.0's AI Client connected on your hub site, every new ticket gets a short brief: what the customer is asking, the likely cause from the diagnostics, suspects, and first steps to try. **Draft with AI** writes a reply you edit before sending. Nothing goes to an AI provider unless triage is on or someone presses an AI button. It works with any provider under **Settings › Connectors**, including the free, local AI Provider for WebLLM ([how to set it up](local-ai.md)).
 
 On the customer's side, the free plugin has an optional writing assistant that helps customers describe their problem clearly (your policy can turn it off).

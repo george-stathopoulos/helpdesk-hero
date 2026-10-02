@@ -16,7 +16,7 @@ Click **New ticket**, describe the problem, and choose a category and priority i
 
 ![The New ticket form on the customer's site.](images/site-new-ticket.png)
 
-If your support team allows it, **Help me describe this** turns your notes into a clear report using your site's AI provider. No AI account? The free [AI Provider for WebLLM](https://github.com/ProgressPlanner/ai-provider-for-webllm) runs a model privately in your browser; **Settings** in your help center shows what to set up.
+If your support team allows it, **Help me describe this** turns your notes into a clear report using your site's AI provider. No AI account? The free AI Provider for WebLLM runs a model privately in your browser: see [Private AI with WebLLM](local-ai.md).
 
 Below the form you'll see what will be sent with your ticket: your WordPress and PHP versions, plugins, recent errors and changes, and a health check. Passwords and keys are never sent, and email addresses are masked. Your support team decides which parts are required; you can untick the others.
 

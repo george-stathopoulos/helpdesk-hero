@@ -720,3 +720,38 @@
 		margin: 0;
 	}
 }
+
+/* ------------------------------------------------------------------ Unread tickets */
+
+.hdh-nav__count {
+	display: inline-grid;
+	place-items: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	margin-left: 2px;
+	border-radius: 999px;
+	background: var(--hdh-critical, #d63638);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.hdh-unread {
+	display: inline-block;
+	margin-right: 8px;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	vertical-align: 1px;
+	background: var(--hdh-accent);
+	color: var(--hdh-accent-ink, #fff);
+
+	&.is-reply {
+		background: var(--hdh-accent-soft);
+		color: var(--hdh-accent);
+		box-shadow: inset 0 0 0 1px var(--hdh-accent-line);
+	}
+}

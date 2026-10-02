@@ -64,7 +64,7 @@ Pro features switch off. Your tickets, sites, policies and the free hub keep wor
 
 ### Do I need an AI account for the AI features?
 
-No. AI features are optional and use whatever AI provider your site has. The free [AI Provider for WebLLM](pro.md#private-local-ai-with-webllm) runs a model in your browser, so there's no account, no cost and nothing leaves your site.
+No. AI features are optional and use whatever AI provider your site has. The free AI Provider for WebLLM runs a model in your browser, so there's no account, no cost and nothing leaves your site. See [Private AI with WebLLM](local-ai.md).
 
 ### Can I choose who replies to customers?
 

@@ -55,13 +55,31 @@ final class Helpdesk_Hero_AI {
 	public static function local_ai() {
 		$active = defined( 'WEBLLM_API_KEY' ) || class_exists( 'WordPress\\WebLlmAiProvider\\Provider\\WebLlmProvider' );
 		return array(
-			'installed' => $active || file_exists( WP_PLUGIN_DIR . '/ai-provider-for-webllm/plugin.php' ),
+			'installed' => $active || self::webllm_installed(),
 			'active'    => $active,
 			'worker'    => $active && (bool) get_option( 'ai_provider_webllm_worker_enabled', false ),
 			'settings'  => admin_url( 'options-general.php?page=ai-provider-webllm' ),
 			'plugins'   => admin_url( 'plugins.php' ),
 			'url'       => 'https://github.com/ProgressPlanner/ai-provider-for-webllm',
 		);
+	}
+
+	/**
+	 * Whether AI Provider for WebLLM is installed, whatever its folder is called (a GitHub
+	 * "Download ZIP" installs it as ai-provider-for-webllm-main).
+	 *
+	 * @return bool
+	 */
+	private static function webllm_installed() {
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		foreach ( get_plugins() as $file => $data ) {
+			if ( 'AI Provider for WebLLM' === ( $data['Name'] ?? '' ) || 0 === strpos( $file, 'ai-provider-for-webllm' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

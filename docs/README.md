@@ -23,6 +23,7 @@ Guides, answers and troubleshooting for Helpdesk Hero, with screenshots of every
 
 ## Reference
 
+- [Private AI with WebLLM](local-ai.md): download, install and check the free in-browser AI provider.
 - [Privacy and security](privacy-and-security.md): what is stored where, what leaves a site, and how it is protected.
 - [FAQ](faq.md)
 - [Troubleshooting](troubleshooting.md)

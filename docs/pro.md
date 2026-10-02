@@ -49,13 +49,7 @@ When WordPress 7.0's AI Client is connected on your hub site, each new ticket ge
 
 ### Private, local AI with WebLLM
 
-You don't need a cloud AI account. The free [AI Provider for WebLLM](https://github.com/ProgressPlanner/ai-provider-for-webllm) runs a language model inside your browser (WebGPU): no API key, no per-request cost, and nothing leaves your site.
-
-1. Install and activate **AI Provider for WebLLM** on your hub site.
-2. Under **Settings → WebLLM**, choose a model and turn on **In-browser worker**.
-3. Keep a dashboard tab open while you work: Helpdesk Hero's AI requests are answered by the model in that tab.
-
-Because the model runs in a browser, briefs aren't written in the background with WebLLM: open the ticket and click **Write it**. Your site must use HTTPS (or `localhost`), and the browser must support WebGPU (recent Chrome works best). The hub tells you what's missing when AI isn't ready.
+You don't need a cloud AI account: the free **AI Provider for WebLLM** (by Joost de Valk / Progress Planner) runs a model inside your browser, with no API key and nothing sent to an AI company. [Set it up step by step](local-ai.md). With WebLLM, briefs aren't written in the background: open the ticket and click **Write it**.
 
 ## Message every site
 
