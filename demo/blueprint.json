@@ -1,0 +1,82 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Helpdesk Hero demo",
+		"author": "George Stathopoulos",
+		"description": "A support hub and a customer site, with example tickets."
+	},
+	"landingPage": "/wp-admin/admin.php?page=helpdesk-hero-hub",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"features": {
+		"networking": true
+	},
+	"login": true,
+	"steps": [
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"blogname": "Acme Support"
+			}
+		},
+		{
+			"step": "enableMultisite"
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp site create --slug=northwind --title='Northwind Coffee Roasters' --email=nora@northwind.example"
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "url",
+				"url": "https://george-stathopoulos.github.io/helpdesk-hero/downloads/helpdesk-hero-hub.zip"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "url",
+				"url": "https://george-stathopoulos.github.io/helpdesk-hero/downloads/helpdesk-hero.zip"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "url",
+				"url": "https://george-stathopoulos.github.io/helpdesk-hero/downloads/helpdesk-hero-pro.zip"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp plugin activate helpdesk-hero-hub helpdesk-hero helpdesk-hero-pro --network"
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/mu-plugins/helpdesk-hero-demo.php",
+			"data": {
+				"resource": "url",
+				"url": "https://george-stathopoulos.github.io/helpdesk-hero/demo/helpdesk-hero-demo.php.txt"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/hdh-seed.php",
+			"data": {
+				"resource": "url",
+				"url": "https://george-stathopoulos.github.io/helpdesk-hero/demo/seed.php.txt"
+			}
+		}
+	]
+}

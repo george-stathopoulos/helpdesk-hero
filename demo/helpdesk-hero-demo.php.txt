@@ -1,0 +1,191 @@
+<?php
+/**
+ * Plugin Name: Helpdesk Hero demo
+ * Description: Runs the Helpdesk Hero demo in WordPress Playground: a support hub (main site) and a customer site (/northwind/) in one multisite. Requests between them are handled inside WordPress, emails are not sent, and Pro is unlocked. Not for production.
+ *
+ * @package Helpdesk_Hero
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+// Pro features on, for the demo only.
+add_filter( 'helpdesk_hero_pro_license_active', '__return_true' );
+
+// No real email from the demo.
+add_filter( 'pre_wp_mail', '__return_true' );
+
+/**
+ * The hub and the customer site talk over HTTP in real life. Playground in the browser can't
+ * call itself, so requests to any site in this network are dispatched internally, on that site.
+ */
+add_filter(
+	'pre_http_request',
+	static function ( $pre, $args, $url ) {
+		if ( false !== $pre || ! is_multisite() ) {
+			return $pre;
+		}
+		$target = 0;
+		$best   = 0;
+		foreach ( get_sites( array( 'number' => 20 ) ) as $site ) {
+			$home = untrailingslashit( get_home_url( (int) $site->blog_id ) );
+			if ( 0 === strpos( $url, $home . '/' ) || $url === $home ) {
+				if ( strlen( $home ) > $best ) {
+					$best   = strlen( $home );
+					$target = (int) $site->blog_id;
+				}
+			}
+		}
+		if ( ! $target ) {
+			return $pre;
+		}
+		$parts = wp_parse_url( $url );
+		parse_str( $parts['query'] ?? '', $query );
+		if ( isset( $query['rest_route'] ) ) {
+			$route = $query['rest_route'];
+			unset( $query['rest_route'] );
+		} elseif ( false !== strpos( $parts['path'] ?? '', '/wp-json/' ) ) {
+			$route = '/' . ltrim( substr( $parts['path'], strpos( $parts['path'], '/wp-json/' ) + 8 ), '/' );
+		} else {
+			return $pre;
+		}
+		switch_to_blog( $target );
+		$user = get_current_user_id();
+		wp_set_current_user( 0 );
+		$request = new WP_REST_Request( strtoupper( $args['method'] ?? 'GET' ), $route );
+		$request->set_query_params( $query );
+		foreach ( (array) ( $args['headers'] ?? array() ) as $k => $v ) {
+			$request->set_header( $k, $v );
+		}
+		if ( ! empty( $args['body'] ) && is_string( $args['body'] ) ) {
+			$request->set_body( $args['body'] );
+		} elseif ( ! empty( $args['body'] ) && is_array( $args['body'] ) ) {
+			$request->set_body_params( $args['body'] );
+		}
+		$response = rest_do_request( $request );
+		$data     = rest_get_server()->response_to_data( $response, false );
+		wp_set_current_user( $user );
+		restore_current_blog();
+		return array(
+			'headers'  => array( 'content-type' => 'application/json' ),
+			'body'     => wp_json_encode( $data ),
+			'response' => array(
+				'code'    => $response->get_status(),
+				'message' => '',
+			),
+			'cookies'  => array(),
+		);
+	},
+	1,
+	3
+);
+
+// Each site shows only its own plugin: the hub on the main site, Get Help on the customer site.
+add_action(
+	'admin_menu',
+	static function () {
+		if ( is_main_site() ) {
+			remove_menu_page( 'helpdesk-hero' );
+			remove_submenu_page( 'tools.php', 'helpdesk-hero-troubleshoot' );
+		} else {
+			remove_menu_page( 'helpdesk-hero-hub' );
+		}
+	},
+	999
+);
+
+// Quick switch between the two sites, and a way back to the hub after "Log in" as support.
+add_action(
+	'admin_bar_menu',
+	static function ( $bar ) {
+		if ( ! is_multisite() ) {
+			return;
+		}
+		$sites    = get_sites( array( 'number' => 2 ) );
+		$customer = isset( $sites[1] ) ? (int) $sites[1]->blog_id : 0;
+		$bar->add_node(
+			array(
+				'id'    => 'hdh-demo',
+				'title' => '<span style="background:#4a3aa7;color:#fff;padding:2px 8px;border-radius:4px">' . esc_html__( 'Helpdesk Hero demo', 'helpdesk-hero' ) . '</span>',
+				'href'  => get_admin_url( 1, 'admin.php?page=helpdesk-hero-hub' ),
+			)
+		);
+		$bar->add_node(
+			array(
+				'parent' => 'hdh-demo',
+				'id'     => 'hdh-demo-hub',
+				'title'  => esc_html__( 'Support team: the hub (Acme Support)', 'helpdesk-hero' ),
+				'href'   => get_admin_url( 1, 'admin.php?page=helpdesk-hero-hub' ),
+			)
+		);
+		if ( $customer ) {
+			$bar->add_node(
+				array(
+					'parent' => 'hdh-demo',
+					'id'     => 'hdh-demo-customer',
+					'title'  => esc_html__( 'Customer: Northwind Coffee Roasters', 'helpdesk-hero' ),
+					'href'   => get_admin_url( $customer, 'admin.php?page=helpdesk-hero' ),
+				)
+			);
+		}
+		$bar->add_node(
+			array(
+				'parent' => 'hdh-demo',
+				'id'     => 'hdh-demo-admin',
+				'title'  => esc_html__( 'Back to the demo admin account', 'helpdesk-hero' ),
+				'href'   => wp_login_url() . '?action=hdh_demo_admin',
+			)
+		);
+	},
+	5
+);
+
+// After trying "Log in" as support, the visitor is the support account; this logs the demo admin back in.
+add_action(
+	'login_form_hdh_demo_admin',
+	static function () {
+		wp_set_auth_cookie( 1 );
+		wp_safe_redirect( get_admin_url( 1, 'admin.php?page=helpdesk-hero-hub' ) );
+		exit;
+	}
+);
+
+// Fill the demo with example data on the first page load. Done in a real request (not a blueprint
+// runPHP step) so multisite knows its own address, including the web Playground's scoped path.
+add_action(
+	'init',
+	static function () {
+		$seed = ABSPATH . 'hdh-seed.php';
+		$ready = class_exists( 'Helpdesk_Hero_Hub' ) && class_exists( 'Helpdesk_Hero_Connection' ) && class_exists( 'Helpdesk_Hero_Pro_Team' );
+		if ( ! $ready || ! is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || wp_doing_ajax() || ! is_multisite() || ! file_exists( $seed ) || get_site_option( 'hdh_demo_seeded' ) || get_site_transient( 'hdh_demo_seeding' ) ) {
+			return;
+		}
+		set_site_transient( 'hdh_demo_seeding', 1, 5 * MINUTE_IN_SECONDS );
+		$user = get_current_user_id();
+		include $seed;
+		wp_set_current_user( $user );
+		delete_site_transient( 'hdh_demo_seeding' );
+	},
+	99
+);
+
+// In Playground a new tab can't reach the in-browser WordPress, so "Log in" stays in this tab.
+add_filter( 'helpdesk_hero_hub_login_same_tab', '__return_true' );
+
+// Real multisite servers rewrite /northwind/wp-login.php to WordPress's login screen; Playground
+// has no rewrite rules, so the request arrives here as a "page not found". Serve the login screen
+// in the customer site's context instead (this is what support's one-time login links use).
+add_action(
+	'init',
+	static function () {
+		if ( is_main_site() || empty( $_SERVER['REQUEST_URI'] ) ) {
+			return;
+		}
+		$path = (string) wp_parse_url( esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ), PHP_URL_PATH );
+		$base = (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH );
+		if ( untrailingslashit( $base ) . '/wp-login.php' === $path ) {
+			require ABSPATH . 'wp-login.php';
+			exit;
+		}
+	},
+	0
+);
