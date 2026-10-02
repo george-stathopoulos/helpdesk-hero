@@ -116,7 +116,7 @@ No. It records a few events (updates, settings changes, errors) as they happen, 
 * Support sessions: support sees a read-only Support session page instead of your help center (no tickets or replies on your behalf), and a notice on every screen about what is recorded.
 * White label from your support team: help center name, logo, colour, links and text, including the admin bar and footer.
 * Confirmations open in the dashboard instead of browser pop-ups.
-* The writing assistant works with the local AI Provider for WebLLM, and says what to set up when AI isn't ready.
+* The writing assistant works with the local AI Provider for WebLLM, says what to set up when AI isn't ready, and explains when the local model is still loading.
 
 = 1.0.0 =
 * First release.

@@ -58,9 +58,43 @@ final class Helpdesk_Hero_AI {
 			'installed' => $active || self::webllm_installed(),
 			'active'    => $active,
 			'worker'    => $active && (bool) get_option( 'ai_provider_webllm_worker_enabled', false ),
+			'ready'     => $active && self::webllm_ready(),
+			'model'     => (string) get_option( 'ai_provider_webllm_model', '' ),
 			'settings'  => admin_url( 'options-general.php?page=ai-provider-webllm' ),
 			'plugins'   => admin_url( 'plugins.php' ),
 			'url'       => 'https://github.com/ProgressPlanner/ai-provider-for-webllm',
+		);
+	}
+
+	/**
+	 * Whether a dashboard tab has the WebLLM model loaded and is ready for requests (the
+	 * provider's worker heartbeat, valid for 30 seconds).
+	 *
+	 * @return bool
+	 */
+	private static function webllm_ready() {
+		$worker = get_option( 'ai_provider_webllm_worker' );
+		return is_array( $worker ) && ! empty( $worker['ready'] ) && ( time() - (int) ( $worker['t'] ?? 0 ) ) <= 30;
+	}
+
+	/**
+	 * Turn WebLLM's "no worker connected" error into steps people can follow.
+	 *
+	 * @param WP_Error $error Error from the AI Client.
+	 * @return WP_Error
+	 */
+	public static function explain( WP_Error $error ) {
+		if ( false === stripos( $error->get_error_message(), 'WebLLM worker' ) ) {
+			return $error;
+		}
+		$model = (string) get_option( 'ai_provider_webllm_model', '' );
+		return new WP_Error(
+			'helpdesk_hero_ai_local_loading',
+			sprintf(
+				/* translators: %s: model name */
+				__( 'The local AI model (%s) isn’t ready in your browser yet. Keep this tab open until Settings › WebLLM shows “WebLLM worker: ready”, then try again. The first time, the model is downloaded, which can take several minutes for large models; a small model (around 1 GB) is much faster.', 'helpdesk-hero' ),
+				'' !== $model ? $model : 'WebLLM'
+			)
 		);
 	}
 
@@ -117,10 +151,10 @@ final class Helpdesk_Hero_AI {
 		try {
 			$result = wp_ai_client_prompt( $prompt )->using_system_instruction( $system )->generate_text();
 		} catch ( Throwable $e ) {
-			return new WP_Error( 'helpdesk_hero_ai', $e->getMessage() );
+			return self::explain( new WP_Error( 'helpdesk_hero_ai', $e->getMessage() ) );
 		}
 		if ( is_wp_error( $result ) ) {
-			return $result;
+			return self::explain( $result );
 		}
 		return trim( (string) $result );
 	}

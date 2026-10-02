@@ -72,7 +72,7 @@ Yes, with [Supporters](pro.md#supporters) (Pro): tick the team members who act a
 
 ### Can I try Pro before buying?
 
-Yes: the [live demo](https://george-stathopoulos.github.io/helpdesk-hero/demo/) runs with every Pro feature on. On your own test site, enter **TEST** as the license key ([details](pro.md#trying-pro-on-a-test-site)).
+Yes: the [live demo](https://george-stathopoulos.github.io/helpdesk-hero/demo/) runs with every Pro feature on. On your own site, enter **TEST** as the license key ([details](pro.md#trying-pro-with-the-test-key)).
 
 ### Can support reply or open tickets while logged in to my site?
 

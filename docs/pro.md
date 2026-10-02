@@ -12,9 +12,9 @@ Pro is an add-on for the hub. It needs Helpdesk Hero Hub and goes on the same si
 
 If your license expires, Pro features switch off and the free hub keeps working: tickets, sites, policies and statistics are untouched.
 
-## Trying Pro on a test site
+## Trying Pro with the TEST key
 
-On a test site, enter **TEST** as the license key to switch every Pro feature on without buying a license. It works where WordPress reports a `local`, `development` or `staging` environment (`WP_ENVIRONMENT_TYPE`), on local addresses (`localhost`, `127.0.0.1`, `*.local`, `*.test`) and in WordPress Playground. The test key never expires there, and stops working if the site goes live.
+Enter **TEST** as the license key to switch every Pro feature on without buying a license. Until Helpdesk Hero Pro's store opens, it works on any site. After that it keeps working on test sites only: where WordPress reports a `local`, `development` or `staging` environment (`WP_ENVIRONMENT_TYPE`), on local addresses (`localhost`, `127.0.0.1`, `*.local`, `*.test`) and in WordPress Playground.
 
 ## Help Scout and Zendesk (coming soon)
 
