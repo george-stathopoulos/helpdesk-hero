@@ -4,7 +4,7 @@ This page is written for your customers. You can send them the link: it explains
 
 ## Connect to your support team
 
-1. In your WordPress dashboard, go to **Plugins → Add New**, search for **Helpdesk Hero**, then install and activate it.
+1. Download the latest `helpdesk-hero.zip` from [GitHub releases](https://github.com/george-stathopoulos/helpdesk-hero/releases/latest). In your WordPress dashboard, go to **Plugins → Add New → Upload Plugin**, upload the zip, then install and activate it.
 2. Open **Get Help** in the menu (your support team may have given it their own name).
 3. Paste the connection code your support team sent you and click **Connect**.
 

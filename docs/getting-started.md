@@ -14,7 +14,7 @@ Customers never choose a hub themselves. They connect only with a code you give 
 
 ## Install the hub
 
-1. On your support team's WordPress site, go to **Plugins → Add New**, search for **Helpdesk Hero Hub**, then install and activate it.
+1. Download the latest `helpdesk-hero-hub.zip` from [GitHub releases](https://github.com/george-stathopoulos/helpdesk-hero-hub/releases/latest). On your support team's WordPress site, go to **Plugins → Add New → Upload Plugin**, upload the zip, then install and activate it. (Once Helpdesk Hero Hub is on WordPress.org, you'll be able to search for it under **Plugins → Add New** instead.)
 2. The setup guide opens. It takes about two minutes.
 
 ![The first step of the hub's setup guide.](images/hub-welcome.png)
@@ -37,7 +37,7 @@ You can leave the guide at any time with **Skip setup**, and come back to it fro
 1. In the hub, open **Sites** and click **Connect a site**.
 2. Enter the customer's name (and email, if you like) and choose the policy that site should use.
 3. Copy the connection code. It starts with `hdh1.` and works for 7 days.
-4. Send the code to your customer with these instructions: install **Helpdesk Hero** from WordPress.org, open **Get Help** in the dashboard, paste the code and click **Connect**.
+4. Send the code to your customer with these instructions: install **Helpdesk Hero** (the latest `helpdesk-hero.zip` from [GitHub releases](https://github.com/george-stathopoulos/helpdesk-hero/releases/latest)), open **Get Help** in the dashboard, paste the code and click **Connect**.
 
 ![Creating a connection code in the hub.](images/hub-connect.png)
 

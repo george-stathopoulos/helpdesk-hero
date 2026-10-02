@@ -15,7 +15,7 @@ The free WordPress plugin your customers install to open support tickets from th
 
 ## In this repository
 
-This is the plugin as it ships: PHP in `includes/`, the dashboard's source in `src/` and its compiled bundle in `build/`. Install it like any plugin, or download the zip from the website.
+This is the plugin as it ships: PHP in `includes/`, the dashboard's source in `src/` and its compiled bundle in `build/`. Download the installable zip from the [latest release](../../releases/latest), then upload it under **Plugins → Add New → Upload Plugin**.
 
 ## Feedback
 
@@ -27,4 +27,4 @@ GPL-2.0-or-later. See [LICENSE](LICENSE).
 
 ---
 
-**More projects:** [Gatehouse](https://george-stathopoulos.github.io/gatehouse/), AI cost, budget and privacy control for WordPress · [All projects](https://george-stathopoulos.github.io/#projects)
+**More projects:** [Gatehouse](https://george-stathopoulos.github.io/gatehouse/), AI governance and cost control for WordPress · [All projects](https://george-stathopoulos.github.io/#projects)

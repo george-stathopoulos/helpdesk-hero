@@ -13,7 +13,7 @@ For each site you see its status, the policy it uses, its WordPress and plugin v
 3. Choose the site's policy: your default policy, a template, or edit it later.
 4. Click **Create connection code** and send the code to the customer.
 
-The code starts with `hdh1.`, can be used once and expires after 7 days. The customer installs **Helpdesk Hero** from WordPress.org, opens **Get Help** and pastes it. Until then, the site shows as **Waiting for the site** and you can copy the code again or cancel the invitation.
+The code starts with `hdh1.`, can be used once and expires after 7 days. The customer installs **Helpdesk Hero** (the latest `helpdesk-hero.zip` from [GitHub releases](https://github.com/george-stathopoulos/helpdesk-hero/releases/latest)), opens **Get Help** and pastes it. Until then, the site shows as **Waiting for the site** and you can copy the code again or cancel the invitation.
 
 ## A site's details
 
