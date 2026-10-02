@@ -88,10 +88,11 @@
 <li>Click <strong>Activate Plugin</strong>.</li>
 </ol>
 <p>On a support hub, install it on the hub site. On a customer site, the site owner installs it there for the writing assistant.</p>
+<p><strong>Multisite:</strong> WebLLM's settings are per site. Network-activating the plugin isn't enough: on each site that uses AI (for example the customer site in the Helpdesk Hero demo), open that site's <strong>Settings → WebLLM</strong>, choose a model and turn on the worker.</p>
 <h2 id="3-choose-a-model-and-turn-on-the-worker">3. Choose a model and turn on the worker<a class="anchor" href="#3-choose-a-model-and-turn-on-the-worker" aria-label="Link to this section">#</a></h2>
 <ol>
 <li>Go to <strong>Settings → WebLLM</strong>.</li>
-<li>Pick a <strong>Model</strong>. The list comes from WebLLM's catalogue, smallest first. Start with a small one (around 1 billion parameters); you can switch later.</li>
+<li>Pick a <strong>Model</strong>. The list comes from WebLLM's catalogue and shows each model's download size. <strong>Start with a small one, around 1 GB or less</strong> (for example a 0.5B–1B model such as Qwen2.5-0.5B-Instruct or Llama-3.2-1B-Instruct). The default, Qwen3.5-4B (about 3.8 GB), gives better answers but takes much longer to download and load, and needs a powerful computer. You can switch later.</li>
 <li>Turn on <strong>In-browser worker</strong>. Helpdesk Hero needs this: its AI requests start on your server, and the worker lets an open dashboard tab answer them.</li>
 <li>Click <strong>Save Changes</strong>.</li>
 </ol>
@@ -107,6 +108,7 @@
 <h2 id="how-it-behaves">How it behaves<a class="anchor" href="#how-it-behaves" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong>Keep a dashboard tab open</strong> while you use AI features. With no tab open, there's no browser to run the model, and requests wait and then time out.</li>
+<li><strong>Wait for “ready”.</strong> The model loads into each dashboard page you open (from the browser's cache after the first time). Requests made before it finishes loading fail with a message asking you to wait; try again once <strong>WebLLM worker: ready</strong> shows. Small models load in seconds.</li>
 <li><strong>No background AI.</strong> Scheduled tasks (cron) and WP-CLI have no browser, so with WebLLM active, Pro doesn't write triage briefs automatically when tickets arrive. Open the ticket and click <strong>Write it</strong> instead.</li>
 <li><strong>Speed depends on your computer.</strong> A laptop with a recent graphics chip answers a short brief in seconds; older machines take longer. Smaller models help.</li>
 </ul>
@@ -136,8 +138,16 @@
 <td>Check that the plugin is <strong>active</strong>, a model is saved, and <strong>In-browser worker</strong> is on. Then reload the Helpdesk Hero screen.</td>
 </tr>
 <tr>
+<td><em>The local AI model (…) isn't ready in your browser yet</em> (or WebLLM's <em>No WebLLM worker is connected for model …</em>)</td>
+<td>The model is still downloading or loading. Stay on the page until <strong>Settings → WebLLM</strong> shows <em>WebLLM worker: ready</em>, then retry. If it never gets there, choose a smaller model. On multisite, set up WebLLM on the site you're using.</td>
+</tr>
+<tr>
 <td>Requests time out</td>
 <td>Keep a dashboard tab open and wait for <em>WebLLM worker: ready</em>. Very slow devices may need a smaller model.</td>
+</tr>
+<tr>
+<td>It doesn't work in the live demo</td>
+<td>The demo runs WordPress inside your browser; a model of several GB on top of that often runs out of memory. Use a small model, or try WebLLM on your own site.</td>
 </tr>
 </tbody>
 </table>
