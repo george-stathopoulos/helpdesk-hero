@@ -402,6 +402,12 @@ if ( $h2 = $hub_ticket( $local[1] ) ) {
 if ( $h3 = $hub_ticket( $local[2] ) ) {
 	Helpdesk_Hero_Hub::set_tags( $h3, array( 'how-to' ) );
 }
+// Sam has read the tickets he answered; the shipping question is still new for the team.
+foreach ( array( $h1, $h2 ) as $seen ) {
+	if ( $seen ) {
+		Helpdesk_Hero_Hub::mark_viewed( (int) $seen['id'] );
+	}
+}
 restore_current_blog();
 
 /* Rate ticket 2 from the customer site. */

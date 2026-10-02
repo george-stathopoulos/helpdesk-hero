@@ -55,7 +55,7 @@
 		<h2>Start here</h2><ul><li><a href="../getting-started/">Getting started</a></li><li><a href="../how-it-works/">How it works</a></li></ul>
 		<h2>Using the hub</h2><ul><li><a href="../inbox/" aria-current="page">Inbox and tickets</a></li><li><a href="../site-access/">Site access</a></li><li><a href="../sites/">Connecting sites</a></li><li><a href="../policies/">Policies and templates</a></li><li><a href="../overview/">Overview and statistics</a></li><li><a href="../settings/">Settings</a></li><li><a href="../pro/">Pro</a></li></ul>
 		<h2>For your customers</h2><ul><li><a href="../customers/">For your customers</a></li></ul>
-		<h2>Reference</h2><ul><li><a href="../privacy-and-security/">Privacy and security</a></li><li><a href="../faq/">FAQ</a></li><li><a href="../troubleshooting/">Troubleshooting</a></li><li><a href="../developers/">For developers</a></li></ul>
+		<h2>Reference</h2><ul><li><a href="../local-ai/">Private AI with WebLLM</a></li><li><a href="../privacy-and-security/">Privacy and security</a></li><li><a href="../faq/">FAQ</a></li><li><a href="../troubleshooting/">Troubleshooting</a></li><li><a href="../developers/">For developers</a></li></ul>
 	</details>
 </aside>
 <article class="doc">
@@ -94,9 +94,16 @@
 </ol>
 <p>The email text stays available on the ticket, so the customer can copy it again later.</p>
 <h2 id="notifications">Notifications<a class="anchor" href="#notifications" aria-label="Link to this section">#</a></h2>
-<p>New tickets and customer replies are emailed to the team email address under <strong>Settings</strong>. The customer is emailed when you reply.</p>
+<p>When a customer opens a ticket or replies, your team sees it in WordPress straight away:</p>
+<ul>
+<li>a count on <strong>Support Hub</strong> in the menu, and <strong>1 new ticket</strong> in the admin bar;</li>
+<li>a notice on other dashboard screens with a button to open the ticket. <strong>Dismiss</strong> hides it until the next ticket or reply arrives;</li>
+<li><strong>New</strong> and <strong>Customer replied</strong> labels in the Inbox, and a message in the hub if something arrives while it's open.</li>
+</ul>
+<figure data-zoom><img src="../../assets/img/hub-new-ticket-notice.jpg" alt="The new-ticket notice, the Support Hub count and the admin bar link." width="1800" height="375" loading="lazy" decoding="async"><figcaption>The new-ticket notice, the Support Hub count and the admin bar link.</figcaption></figure>
+<p>A ticket stops counting as new once anyone on the team opens it. New tickets and customer replies are also emailed to the team email address under <strong>Settings</strong>, and the customer is emailed when you reply.</p>
 <h2 id="ai-triage-pro">AI triage (Pro)<a class="anchor" href="#ai-triage-pro" aria-label="Link to this section">#</a></h2>
-<p>With <a href="../pro/#ai-triage">Pro</a>, and WordPress 7.0's AI Client connected on your hub site, every new ticket gets a short brief: what the customer is asking, the likely cause from the diagnostics, suspects, and first steps to try. <strong>Draft with AI</strong> writes a reply you edit before sending. Nothing goes to an AI provider unless triage is on or someone presses an AI button. It works with any provider under <strong>Settings › Connectors</strong>, including the free, local <a href="../pro/#private-local-ai-with-webllm">AI Provider for WebLLM</a>.</p>
+<p>With <a href="../pro/#ai-triage">Pro</a>, and WordPress 7.0's AI Client connected on your hub site, every new ticket gets a short brief: what the customer is asking, the likely cause from the diagnostics, suspects, and first steps to try. <strong>Draft with AI</strong> writes a reply you edit before sending. Nothing goes to an AI provider unless triage is on or someone presses an AI button. It works with any provider under <strong>Settings › Connectors</strong>, including the free, local AI Provider for WebLLM (<a href="../local-ai/">how to set it up</a>).</p>
 <p>On the customer's side, the free plugin has an optional writing assistant that helps customers describe their problem clearly (your policy can turn it off).</p>
 
 	<div class="help-strip"><p><strong>Still stuck?</strong> Check <a href="../troubleshooting/">Troubleshooting</a> and the <a href="../faq/">FAQ</a>, or <a href="https://github.com/george-stathopoulos/helpdesk-hero-hub/issues">ask on GitHub</a>. You can also try everything in the <a href="../../demo/">live demo</a>.</p></div>
