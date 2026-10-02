@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For developers · Helpdesk Hero</title>
+<meta name="description" content="WP-CLI, hooks, the signed protocol and extending the hub. Helpdesk Hero help center.">
+<meta name="theme-color" content="#4a3aa7">
+<link rel="canonical" href="https://george-stathopoulos.github.io/helpdesk-hero/docs/developers/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Helpdesk Hero">
+<meta property="og:title" content="For developers · Helpdesk Hero">
+<meta property="og:description" content="WP-CLI, hooks, the signed protocol and extending the hub. Helpdesk Hero help center.">
+<meta property="og:url" content="https://george-stathopoulos.github.io/helpdesk-hero/docs/developers/">
+<meta property="og:image" content="https://george-stathopoulos.github.io/helpdesk-hero/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../assets/icon-256.png">
+<link rel="stylesheet" href="../../assets/site.css?v=2.0.0">
+<script>try{var t=localStorage.getItem('hdh-site-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script src="../../assets/search-index.js?v=2.0.0" defer></script>
+</head>
+<body data-root="../../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head">
+	<div class="wrap">
+		<a class="brand" href="../../"><span class="mark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/></svg></span>Helpdesk Hero</a>
+		<nav id="site-nav" class="nav" aria-label="Main">
+			<a href="../../index.html#features">Features</a>
+			<a href="../../index.html#how">How it works</a>
+			<a href="../../demo/">Live demo</a>
+			<a href="../../pro/">Pro</a>
+			<a href="../../trust/">Privacy & security</a>
+			<a href="../../docs/" aria-current="page">Help center</a>
+		</nav>
+		<div class="head-actions">
+			<button class="icon-btn" type="button" data-theme-toggle aria-label="Dark theme" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+			<a class="btn btn-primary btn-sm" href="../../downloads/helpdesk-hero-hub.zip" download><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download</a>
+			<button class="icon-btn menu-btn" type="button" data-menu-toggle aria-controls="site-nav" aria-expanded="false" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+		</div>
+	</div>
+</header>
+<main id="main">
+<div class="wrap docs-layout">
+<aside class="docs-nav" aria-label="Help center">
+	<div class="search" data-search role="search">
+	<label class="sr" for="side-search">Search the help center</label>
+	<input id="side-search" type="search" placeholder="Search help…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="side-search-results">
+	<ul class="search-results" id="side-search-results" role="listbox" aria-label="Search results" hidden></ul>
+	<p class="sr" role="status" aria-live="polite"></p>
+</div>
+	<details open>
+		<summary class="docs-nav-toggle">Browse all guides</summary>
+		<ul><li><a href="../">Help center home</a></li></ul>
+		<h2>Start here</h2><ul><li><a href="../getting-started/">Getting started</a></li><li><a href="../how-it-works/">How it works</a></li></ul>
+		<h2>Using the hub</h2><ul><li><a href="../inbox/">Inbox and tickets</a></li><li><a href="../site-access/">Site access</a></li><li><a href="../sites/">Connecting sites</a></li><li><a href="../policies/">Policies and templates</a></li><li><a href="../overview/">Overview and statistics</a></li><li><a href="../settings/">Settings</a></li><li><a href="../pro/">Pro</a></li></ul>
+		<h2>For your customers</h2><ul><li><a href="../customers/">For your customers</a></li></ul>
+		<h2>Reference</h2><ul><li><a href="../privacy-and-security/">Privacy and security</a></li><li><a href="../faq/">FAQ</a></li><li><a href="../troubleshooting/">Troubleshooting</a></li><li><a href="../developers/" aria-current="page">For developers</a></li></ul>
+	</details>
+</aside>
+<article class="doc">
+	<nav class="crumbs" aria-label="Breadcrumb"><a href="../">Help center</a> › For developers</nav>
+	<h1 id="for-developers">For developers</h1>
+<p>Helpdesk Hero is built to be extended. This page covers the WP-CLI commands, the main hooks, and how the two plugins talk.</p>
+<h2 id="wp-cli">WP-CLI<a class="anchor" href="#wp-cli" aria-label="Link to this section">#</a></h2>
+<p>On a customer site:</p>
+<pre tabindex="0"><code class="language-bash">wp helpdesk-hero status                 # connection, open tickets, active access
+wp helpdesk-hero diagnostics            # the diagnostics a ticket would include
+wp helpdesk-hero connect &lt;code&gt;         # connect with a code from the hub
+wp helpdesk-hero grant --hours=24       # give support access without a ticket
+wp helpdesk-hero revoke --all           # end all support access
+wp helpdesk-hero sync                   # fetch updates from the hub now
+</code></pre>
+<p>On the hub:</p>
+<pre tabindex="0"><code class="language-bash">wp helpdesk-hero-hub status
+wp helpdesk-hero-hub invite &quot;Northwind Coffee&quot; --email=nora@example.com
+wp helpdesk-hero-hub sync               # push pending updates, sync help desks
+</code></pre>
+<h2 id="hooks-on-the-customer-site">Hooks on the customer site<a class="anchor" href="#hooks-on-the-customer-site" aria-label="Link to this section">#</a></h2>
+<p><strong>Add your own plugin's details to tickets.</strong> Values are redacted after this filter runs.</p>
+<pre tabindex="0"><code class="language-php">add_filter( 'helpdesk_hero_diagnostics', function ( $data, $sections ) {
+	$data['my_plugin'] = array( 'license' =&gt; my_plugin_license_status(), 'mode' =&gt; get_option( 'my_plugin_mode' ) );
+	return $data;
+}, 10, 2 );
+</code></pre>
+<p><strong>Teach the health check about a conflict you know.</strong> Each rule lists plugin directory slugs that must all be active.</p>
+<pre tabindex="0"><code class="language-php">add_filter( 'helpdesk_hero_known_conflicts', function ( $rules ) {
+	$rules[] = array(
+		'plugins' =&gt; array( 'my-plugin', 'some-cache-plugin' ),
+		'level'   =&gt; 'warning',
+		'title'   =&gt; 'My Plugin and Some Cache conflict',
+		'detail'  =&gt; 'Exclude /my-endpoint/ from caching.',
+	);
+	return $rules;
+} );
+</code></pre>
+<table tabindex="0">
+<thead>
+<tr>
+<th>Hook</th>
+<th>Type</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>helpdesk_hero_diagnostics</code></td>
+<td>filter</td>
+<td>Add or remove diagnostics</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_health_flags</code></td>
+<td>filter</td>
+<td>Change the health check findings</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_known_conflicts</code></td>
+<td>filter</td>
+<td>Add known conflicts</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_overlap_groups</code></td>
+<td>filter</td>
+<td>Groups of plugins that do the same job</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_redact</code></td>
+<td>filter</td>
+<td>Extra redaction on text leaving the site</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_access_roles</code></td>
+<td>filter</td>
+<td>The roles that can be given to support</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_ticket_sent</code></td>
+<td>action</td>
+<td>After a ticket is opened</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_access_granted</code></td>
+<td>action</td>
+<td>After support access is granted</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_update</code></td>
+<td>action</td>
+<td>Handle your own update types from the hub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hooks-on-the-hub">Hooks on the hub<a class="anchor" href="#hooks-on-the-hub" aria-label="Link to this section">#</a></h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>Hook</th>
+<th>Type</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>helpdesk_hero_hub_capability</code></td>
+<td>filter</td>
+<td>Capability needed to use the hub (default <code>manage_options</code>)</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_policy</code></td>
+<td>filter</td>
+<td>Add your own keys to the support policy</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_helpdesks</code></td>
+<td>filter</td>
+<td>Register a help desk connector (a class extending <code>Helpdesk_Hero_Hub_Helpdesk</code>)</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_branding</code></td>
+<td>filter</td>
+<td>Branding sent to customer sites</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_redact</code></td>
+<td>filter</td>
+<td>Extra redaction on the hub</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_ticket_received</code></td>
+<td>action</td>
+<td>A ticket arrived (before it goes to a help desk)</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_ticket_created</code></td>
+<td>action</td>
+<td>A ticket was created</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_ticket_rated</code></td>
+<td>action</td>
+<td>A customer rated a ticket</td>
+</tr>
+<tr>
+<td><code>helpdesk_hero_hub_site_connected</code></td>
+<td>action</td>
+<td>A site connected</td>
+</tr>
+</tbody>
+</table>
+<p>The hub's React app also has JavaScript filters (via <code>@wordpress/hooks</code>) for adding screens and panels: <code>helpdeskHeroHub.routes</code>, <code>helpdeskHeroHub.ticketPanels</code>, <code>helpdeskHeroHub.replyTools</code>, <code>helpdeskHeroHub.sitesPanels</code> and <code>helpdeskHeroHub.overviewPanels</code>. Helpdesk Hero Pro is built entirely on these.</p>
+<h2 id="the-protocol">The protocol<a class="anchor" href="#the-protocol" aria-label="Link to this section">#</a></h2>
+<p>Each site has its own shared secret. Requests carry four headers:</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>Header</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-HDH-Id</code></td>
+<td>The site's ID in the hub</td>
+</tr>
+<tr>
+<td><code>X-HDH-Time</code></td>
+<td>Unix time</td>
+</tr>
+<tr>
+<td><code>X-HDH-Nonce</code></td>
+<td>A random single-use value</td>
+</tr>
+<tr>
+<td><code>X-HDH-Signature</code></td>
+<td>HMAC-SHA256 of <code>v1</code>, time, nonce, method, route and the SHA-256 of the body, joined with newlines</td>
+</tr>
+</tbody>
+</table>
+<p>Requests older than five minutes and repeated nonces are refused. Diagnostics travel gzipped and base64-encoded in a <code>bundle</code> field, so web application firewalls don't mistake them for an attack.</p>
+<p>Routes:</p>
+<ul>
+<li>Hub: <code>/wp-json/helpdesk-hero-hub/v1/</code> (<code>pair</code>, <code>tickets</code>, <code>updates</code>, <code>ping</code>, <code>unpair</code>, and ticket actions)</li>
+<li>Customer site: <code>/wp-json/helpdesk-hero/v1/client/</code> (<code>push</code>, <code>login-link</code>, <code>activity</code>, <code>ping</code>)</li>
+</ul>
+<h2 id="source-and-contributions">Source and contributions<a class="anchor" href="#source-and-contributions" aria-label="Link to this section">#</a></h2>
+<p>Issues and pull requests are welcome on <a href="https://github.com/george-stathopoulos/helpdesk-hero" rel="noopener">GitHub</a>.</p>
+
+	<div class="help-strip"><p><strong>Still stuck?</strong> Check <a href="../troubleshooting/">Troubleshooting</a> and the <a href="../faq/">FAQ</a>, or <a href="https://github.com/george-stathopoulos/helpdesk-hero/issues">ask on GitHub</a>. You can also try everything in the <a href="../../demo/">live demo</a>.</p></div>
+	<nav class="pager" aria-label="Previous and next guide">
+		<a class="prev" href="../troubleshooting/"><small>Previous</small>Troubleshooting</a>
+		
+	</nav>
+</article>
+<nav class="on-page" aria-label="On this page" data-spy><h2>On this page</h2><ul><li><a href="#wp-cli">WP-CLI</a></li><li><a href="#hooks-on-the-customer-site">Hooks on the customer site</a></li><li><a href="#hooks-on-the-hub">Hooks on the hub</a></li><li><a href="#the-protocol">The protocol</a></li><li><a href="#source-and-contributions">Source and contributions</a></li></ul></nav>
+</div>
+</main>
+<footer class="site-foot">
+	<div class="wrap">
+		<div class="foot-grid">
+			<div class="foot-about">
+				<a class="brand" href="../../"><span class="mark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/></svg></span>Helpdesk Hero</a>
+				<p>Tickets with everything you need, one-click access without passwords, and your rules for every customer site. Free and open source (GPL).</p>
+			</div>
+			<div>
+				<h2>Product</h2>
+				<ul>
+					<li><a href="../../index.html#features">Features</a></li>
+					<li><a href="../../demo/">Live demo</a></li>
+					<li><a href="../../pro/">Helpdesk Hero Pro</a></li>
+					<li><a href="../../changelog/">Changelog</a></li>
+				</ul>
+			</div>
+			<div>
+				<h2>Help</h2>
+				<ul>
+					<li><a href="../../docs/">Help center</a></li>
+					<li><a href="../../docs/getting-started/">Getting started</a></li>
+					<li><a href="../../docs/customers/">For your customers</a></li>
+					<li><a href="../../docs/faq/">FAQ</a></li>
+				</ul>
+			</div>
+			<div>
+				<h2>Trust</h2>
+				<ul>
+					<li><a href="../../trust/#privacy">Privacy</a></li>
+					<li><a href="../../trust/#security">Security</a></li>
+					<li><a href="../../trust/#accessibility">Accessibility</a></li>
+					<li><a href="https://github.com/george-stathopoulos/helpdesk-hero/issues">Feedback and ideas</a></li>
+				</ul>
+			</div>
+		</div>
+		<div class="foot-bottom">
+			<span>Made with <span class="heart" role="img" aria-label="love">♥</span> by <a href="https://george-stathopoulos.github.io/">George Stathopoulos</a></span>
+			<span>Helpdesk Hero 2.0.0 · This website uses no cookies and no tracking.</span>
+		</div>
+	</div>
+</footer>
+<script src="../../assets/site.js?v=2.0.0" defer></script>
+</body>
+</html>

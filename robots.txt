@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://george-stathopoulos.github.io/helpdesk-hero/sitemap.xml

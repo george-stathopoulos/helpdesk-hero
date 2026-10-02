@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy, security and accessibility · Helpdesk Hero</title>
+<meta name="description" content="How Helpdesk Hero protects your customers’ sites: one-time codes, signed requests, password-free access, activity logs, GDPR tools and accessibility.">
+<meta name="theme-color" content="#4a3aa7">
+<link rel="canonical" href="https://george-stathopoulos.github.io/helpdesk-hero/trust/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Helpdesk Hero">
+<meta property="og:title" content="Privacy, security and accessibility · Helpdesk Hero">
+<meta property="og:description" content="How Helpdesk Hero protects your customers’ sites: one-time codes, signed requests, password-free access, activity logs, GDPR tools and accessibility.">
+<meta property="og:url" content="https://george-stathopoulos.github.io/helpdesk-hero/trust/">
+<meta property="og:image" content="https://george-stathopoulos.github.io/helpdesk-hero/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/icon-256.png">
+<link rel="stylesheet" href="../assets/site.css?v=2.0.0">
+<script>try{var t=localStorage.getItem('hdh-site-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
+
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head">
+	<div class="wrap">
+		<a class="brand" href="../"><span class="mark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/></svg></span>Helpdesk Hero</a>
+		<nav id="site-nav" class="nav" aria-label="Main">
+			<a href="../index.html#features">Features</a>
+			<a href="../index.html#how">How it works</a>
+			<a href="../demo/">Live demo</a>
+			<a href="../pro/">Pro</a>
+			<a href="../trust/" aria-current="page">Privacy & security</a>
+			<a href="../docs/">Help center</a>
+		</nav>
+		<div class="head-actions">
+			<button class="icon-btn" type="button" data-theme-toggle aria-label="Dark theme" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+			<a class="btn btn-primary btn-sm" href="../downloads/helpdesk-hero-hub.zip" download><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download</a>
+			<button class="icon-btn menu-btn" type="button" data-menu-toggle aria-controls="site-nav" aria-expanded="false" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+		</div>
+	</div>
+</header>
+<main id="main">
+
+<section class="page-head">
+	<div class="wrap">
+		<span class="kicker">Trust</span>
+		<h1>Privacy, security and accessibility</h1>
+		<p>Helpdesk Hero gives your team access to customers' sites. Here's exactly how that's kept safe, in plain language.</p>
+	</div>
+</section>
+<div class="wrap trust-layout">
+	<nav class="toc" aria-label="On this page" data-spy>
+		<h2>On this page</h2>
+		<ol><li><a href="#privacy">Privacy</a></li><li><a href="#security">Security</a></li><li><a href="#compliance">GDPR</a></li><li><a href="#accessibility">Accessibility</a></li><li><a href="#external-services">External services</a></li><li><a href="#report">Reporting a problem</a></li></ol>
+	</nav>
+	<div class="prose">
+		<h2 id="privacy">Privacy</h2>
+		<p><strong>There's no Helpdesk Hero service in the middle.</strong> No account, no tracking, no analytics, no "phone home". Your hub and your customers' sites talk to each other directly, and everything stays in your own databases.</p>
+		<div class="facts">
+			<div class="fact"><b>What a ticket includes</b><span>The customer's message, name and email, and the site details your policy asks for: versions, plugins and theme, recent errors and changes.</span></div>
+			<div class="fact"><b>What never leaves</b><span>Passwords, API keys, tokens and the site's configuration secrets. Email addresses in logs are masked.</span></div>
+			<div class="fact"><b>Customer control</b><span>Customers see everything before a ticket is sent, and can untick anything your policy doesn't require.</span></div>
+			<div class="fact"><b>Uninstalling</b><span>Removes the plugin's tables, settings and scheduled tasks, and deletes any support accounts.</span></div>
+		</div>
+		<p><a href="../docs/privacy-and-security/">What is stored where, in detail →</a></p>
+
+		<h2 id="security">Security</h2>
+		<ul>
+			<li><strong>Paired with a one-time code.</strong> Codes are created in your hub, work once and expire after 7 days.</li>
+			<li><strong>Signed requests.</strong> Each site has its own secret. Every request is signed (HMAC-SHA256), timestamped and single-use; changed, replayed or stale requests are refused.</li>
+			<li><strong>No passwords.</strong> Support logs in with one-time links behind a confirmation page; sites store only a hash of each link.</li>
+			<li><strong>Least privilege.</strong> The default support account is an administrator who can't manage users, change roles or edit code, and it's deleted when access ends.</li>
+			<li><strong>Enforced on both sides.</strong> Your policy is checked by your hub and by the customer's site.</li>
+			<li><strong>Everything logged.</strong> The customer sees every page support opened and every change support made.</li>
+			<li><strong>Reviewed.</strong> Every release passes WordPress's Plugin Check and an automated test suite of almost 200 checks across the hub, customer and Pro plugins.</li>
+		</ul>
+
+		<h2 id="compliance">GDPR</h2>
+		<ul>
+			<li><strong>Data minimisation:</strong> your policy decides what's collected; secrets are removed and emails masked.</li>
+			<li><strong>Access and erasure:</strong> both plugins work with WordPress's <em>Export Personal Data</em> and <em>Erase Personal Data</em> tools.</li>
+			<li><strong>Transparency:</strong> both plugins add suggested text to <em>Settings → Privacy → Policy Guide</em>.</li>
+		</ul>
+
+		<h2 id="accessibility">Accessibility</h2>
+		<p>The hub and the customer help center are designed to meet <strong>WCAG 2.2 level AA</strong>: fully keyboard operable, a table view for every chart, status shown with text and icons rather than colour alone, AA contrast in light and dark themes, and reduced-motion support. This website follows the same rules. If something doesn't work with your assistive technology, please tell us.</p>
+
+		<h2 id="external-services">External services</h2>
+		<ul>
+			<li><strong>Your own sites.</strong> The hub and connected customer sites send each other signed requests.</li>
+			<li><strong>Help Scout or Zendesk</strong> (Pro, only if you choose one): tickets, replies and diagnostics are sent to create and update conversations.</li>
+			<li><strong>Your AI provider</strong> (optional): only if WordPress's AI Client is connected and someone uses an AI feature.</li>
+			<li><strong>Lemon Squeezy</strong> (Pro): to activate and check your license key, and our update server for Pro updates. These send your license key and site address only.</li>
+		</ul>
+
+		<h2 id="report">Reporting a problem</h2>
+		<p><strong>Security issues:</strong> please report them privately with <a href="https://github.com/george-stathopoulos/helpdesk-hero/security/advisories/new">GitHub's private vulnerability reporting</a>, not in public.</p>
+		<p><strong>Everything else:</strong> <a href="https://github.com/george-stathopoulos/helpdesk-hero/issues">open an issue on GitHub</a>.</p>
+	</div>
+</div>
+</main>
+<footer class="site-foot">
+	<div class="wrap">
+		<div class="foot-grid">
+			<div class="foot-about">
+				<a class="brand" href="../"><span class="mark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/></svg></span>Helpdesk Hero</a>
+				<p>Tickets with everything you need, one-click access without passwords, and your rules for every customer site. Free and open source (GPL).</p>
+			</div>
+			<div>
+				<h2>Product</h2>
+				<ul>
+					<li><a href="../index.html#features">Features</a></li>
+					<li><a href="../demo/">Live demo</a></li>
+					<li><a href="../pro/">Helpdesk Hero Pro</a></li>
+					<li><a href="../changelog/">Changelog</a></li>
+				</ul>
+			</div>
+			<div>
+				<h2>Help</h2>
+				<ul>
+					<li><a href="../docs/">Help center</a></li>
+					<li><a href="../docs/getting-started/">Getting started</a></li>
+					<li><a href="../docs/customers/">For your customers</a></li>
+					<li><a href="../docs/faq/">FAQ</a></li>
+				</ul>
+			</div>
+			<div>
+				<h2>Trust</h2>
+				<ul>
+					<li><a href="../trust/#privacy">Privacy</a></li>
+					<li><a href="../trust/#security">Security</a></li>
+					<li><a href="../trust/#accessibility">Accessibility</a></li>
+					<li><a href="https://github.com/george-stathopoulos/helpdesk-hero/issues">Feedback and ideas</a></li>
+				</ul>
+			</div>
+		</div>
+		<div class="foot-bottom">
+			<span>Made with <span class="heart" role="img" aria-label="love">♥</span> by <a href="https://george-stathopoulos.github.io/">George Stathopoulos</a></span>
+			<span>Helpdesk Hero 2.0.0 · This website uses no cookies and no tracking.</span>
+		</div>
+	</div>
+</footer>
+<script src="../assets/site.js?v=2.0.0" defer></script>
+</body>
+</html>

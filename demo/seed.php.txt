@@ -1,0 +1,428 @@
+<?php
+/**
+ * Fills the Helpdesk Hero demo with example data. Run once, as a Playground runPHP step, in a
+ * multisite where site 1 is the support hub and site 2 is the customer.
+ *
+ * - The hub: team, policy, templates, tags, and 120 days of tickets from eight fictional customer
+ *   sites (for the Overview and Analytics).
+ * - The customer site "Northwind Coffee Roasters": connected to the hub with a real connection
+ *   code, with tickets sent through the plugin (one in progress with support access and logged
+ *   activity, one solved and rated, one question, one waiting to be emailed).
+ *
+ * @package Helpdesk_Hero
+ */
+
+// phpcs:disable -- demo seed script, not shipped in any plugin.
+
+// runPHP has no real host; multisite needs the network's domain to find the main site.
+if ( preg_match( '/[\'"]DOMAIN_CURRENT_SITE[\'"]\s*,\s*[\'"]([^\'"]+)/', (string) file_get_contents( '/wordpress/wp-config.php' ), $m ) ) {
+	$_SERVER['HTTP_HOST']   = $m[1];
+	$_SERVER['REQUEST_URI'] = '/';
+}
+require_once '/wordpress/wp-load.php';
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+mt_srand( 20261002 );
+
+$customer_blog = 0;
+foreach ( get_sites() as $s ) {
+	if ( ! is_main_site( (int) $s->blog_id ) ) {
+		$customer_blog = (int) $s->blog_id;
+	}
+}
+
+wp_update_user(
+	array(
+		'ID'           => 1,
+		'display_name' => 'Sam Rivera',
+		'first_name'   => 'Sam',
+		'last_name'    => 'Rivera',
+	)
+);
+wp_set_current_user( 1 );
+
+/* ------------------------------------------------------------------ Hub (site 1) */
+
+switch_to_blog( 1 );
+Helpdesk_Hero_Hub_DB::install();
+Helpdesk_Hero_Hub_Settings::update(
+	array(
+		'team_name'    => 'Acme Support',
+		'notify_email' => 'support@acme.example',
+	)
+);
+update_option( Helpdesk_Hero_Hub_Admin::ONBOARDING, 'done', false );
+update_option( 'helpdesk_hero_hub_installed', time() - 30 * DAY_IN_SECONDS, false );
+
+$categories = array( 'Checkout & payments', 'Performance', 'Plugin conflict', 'Email delivery', 'How-to', 'Account & billing' );
+$policy     = Helpdesk_Hero_Hub_Policy::defaults();
+$policy['access']['roles']         = array( 'restricted_admin', 'editor' );
+$policy['access']['customer_role'] = true;
+$policy['access']['max_hours']     = 72;
+$policy['tickets']['categories']   = $categories;
+$policy['tickets']['intro']        = "We reply within 4 business hours (Mon–Fri, 9:00–17:00 CET).\nUrgent? Choose “Urgent” and we’ll look right away.";
+$policy['tickets']['manual_email'] = 'support@acme.example';
+$policy['diagnostics']['debug_log'] = 'never';
+update_option( Helpdesk_Hero_Hub_Policy::OPTION, Helpdesk_Hero_Hub_Policy::sanitize( $policy ), false );
+
+Helpdesk_Hero_Hub_Tags::save(
+	array(
+		array( 'id' => 'bug', 'name' => 'Bug', 'color' => '#e34948' ),
+		array( 'id' => 'conflict', 'name' => 'Plugin conflict', 'color' => '#eb6834' ),
+		array( 'id' => 'how-to', 'name' => 'How-to', 'color' => '#2a78d6' ),
+		array( 'id' => 'hosting', 'name' => 'Hosting', 'color' => '#6b6963' ),
+		array( 'id' => 'woocommerce', 'name' => 'WooCommerce', 'color' => '#4a3aa7' ),
+		array( 'id' => 'quick-fix', 'name' => 'Quick fix', 'color' => '#1baf7a' ),
+	)
+);
+
+update_option(
+	'helpdesk_hero_pro_settings',
+	array(
+		'auto_triage'   => true,
+		'triage_note'   => true,
+		'brand_name'    => 'Acme Care',
+		'brand_logo'    => '',
+		'brand_color'   => '#0f766e',
+		'brand_intro'   => '',
+		'brand_url'     => 'https://example.com/help',
+		'brand_contact' => "Mon–Fri, 9:00–17:00 CET\nUrgent: +44 20 7946 0000",
+	),
+	false
+);
+
+/* Named supporters (Pro): Sam (the demo admin) and Priya, a Support Agent. */
+Helpdesk_Hero_Pro_Team::add_role();
+$priya = wp_insert_user(
+	array(
+		'user_login'   => 'priya',
+		'user_pass'    => wp_generate_password( 32 ),
+		'user_email'   => 'priya@acme.example',
+		'display_name' => 'Priya Shah',
+		'role'         => Helpdesk_Hero_Pro_Team::ROLE,
+	)
+);
+Helpdesk_Hero_Pro_Team::save_supporters(
+	array(
+		array( 'user_id' => 1, 'name' => 'Sam' ),
+		array( 'user_id' => is_wp_error( $priya ) ? 0 : $priya, 'name' => 'Priya' ),
+	)
+);
+
+/* Fictional customers, for the dashboards. */
+
+global $wpdb;
+$fake_sites = array(
+	array( 'Bluebell Florist', 'https://bluebell-florist.example' ),
+	array( 'Harbour Yoga Studio', 'https://harbouryoga.example' ),
+	array( 'Kettle & Crumb Bakery', 'https://kettleandcrumb.example' ),
+	array( 'Orbit Bikes', 'https://orbitbikes.example' ),
+	array( 'Pine Ridge Lodge', 'https://pineridgelodge.example' ),
+	array( 'Mosaic Tiles Co.', 'https://mosaictiles.example' ),
+	array( 'Riverside Dental', 'https://riversidedental.example' ),
+	array( 'Atlas Bookshop', 'https://atlasbookshop.example' ),
+);
+$site_ids = array();
+foreach ( $fake_sites as $i => $fs ) {
+	$wpdb->insert(
+		Helpdesk_Hero_Hub_DB::table( 'sites' ),
+		array(
+			'label'         => $fs[0],
+			'name'          => $fs[0],
+			'url'           => $fs[1] . '/',
+			'endpoint'      => $fs[1] . '/wp-json/',
+			'contact_email' => 'owner@' . wp_parse_url( $fs[1], PHP_URL_HOST ),
+			'secret'        => bin2hex( random_bytes( 16 ) ),
+			'status'        => 'active',
+			'policy'        => 3 === $i ? wp_json_encode( array( 'template' => 'full-service' ) ) : ( 6 === $i ? wp_json_encode( array( 'template' => 'strict' ) ) : null ),
+			'info'          => wp_json_encode( array( 'wordpress' => mt_rand( 0, 3 ) ? '7.0.1' : '6.8.3', 'version' => '2.0.0', 'ack' => 0 ) ),
+			'created_at'    => gmdate( 'Y-m-d H:i:s', time() - ( 200 - $i * 15 ) * DAY_IN_SECONDS ),
+			'last_seen'     => gmdate( 'Y-m-d H:i:s', time() - mt_rand( 60, 6 * HOUR_IN_SECONDS ) ),
+		)
+	);
+	$site_ids[] = (int) $wpdb->insert_id;
+}
+
+$flag_pool = array(
+	array( 'warning', 'overlap', 'More than one page caching plugin is active', 'WP Rocket, LiteSpeed Cache. Plugins that do the same job often conflict; keep one.' ),
+	array( 'critical', 'errors', '3 errors from WooCommerce', 'First seen after: Updated plugin WooCommerce 9.3.1. Uncaught Error: Call to undefined method WC_Cart::get_cart_contents_count()' ),
+	array( 'warning', 'php_eol', 'PHP is out of support', 'PHP 8.0.30 is end-of-life. Ask the host to move to PHP 8.2 or newer.' ),
+	array( 'warning', 'cron', 'Scheduled tasks are not running', '24 scheduled events are overdue. Emails, backups and scheduled posts may be stuck.' ),
+	array( 'warning', 'low_memory', 'Low PHP memory limit', 'memory_limit is 64M; 256M is a safer minimum.' ),
+	array( 'critical', 'errors', '2 errors from Elementor', 'First seen after: Updated plugin Elementor 3.25.0. TypeError in widget rendering.' ),
+	array( 'warning', 'overlap', 'More than one SMTP / email sending plugin is active', 'WP Mail SMTP, FluentSMTP. Plugins that do the same job often conflict; keep one.' ),
+	array( 'info', 'plugin_updates', '4 active plugins have updates', '' ),
+);
+$subjects = array(
+	'Checkout & payments' => array( 'Checkout page is blank', 'Stripe payments failing since this morning', 'Coupon codes stopped working', 'Cart empties when customers log in' ),
+	'Performance'         => array( 'Site is very slow on mobile', 'Admin takes 20 seconds to load', 'Homepage shows an old version after editing' ),
+	'Plugin conflict'     => array( 'Page builder won’t load after update', 'Contact form broke after installing a plugin', 'White screen after activating a plugin' ),
+	'Email delivery'      => array( 'Order emails are not arriving', 'Contact form emails go to spam', 'Password reset email never arrives' ),
+	'How-to'              => array( 'How do I add a second shipping zone?', 'How can I change the footer text?', 'Can I schedule a sale for Black Friday?' ),
+	'Account & billing'   => array( 'Renewal invoice question', 'Move our license to a new domain' ),
+);
+$replies  = array( 'Thanks for the details. I’m looking into it now.', 'Found it: two caching plugins were fighting. I switched one off and cleared the cache.', 'Fixed. Could you check on your side?', 'Here’s how: go to WooCommerce › Settings › Shipping and add a zone.' );
+$comments = array( 'Fast and friendly, thank you!', 'Fixed within the hour. Great support.', 'Took a while, but solved.', 'Very clear explanation.', '', '', 'Perfect.', 'Would have liked an update sooner.' );
+$tag_for  = array(
+	'Checkout & payments' => array( 'woocommerce', 'bug' ),
+	'Performance'         => array( 'hosting' ),
+	'Plugin conflict'     => array( 'conflict' ),
+	'Email delivery'      => array( 'quick-fix' ),
+	'How-to'              => array( 'how-to' ),
+	'Account & billing'   => array(),
+);
+$names = array( 'Emma Clarke', 'Liam Brooks', 'Olivia Hart', 'Noah Patel', 'Ava Moreno', 'Lucas Weber', 'Mia Rossi', 'Ethan Novak' );
+
+for ( $n = 0; $n < 150; $n++ ) {
+	$age      = (int) floor( pow( mt_rand( 0, 1000 ) / 1000, 1.4 ) * 119 ); // More recent tickets than old ones.
+	$created  = time() - $age * DAY_IN_SECONDS - mt_rand( 0, DAY_IN_SECONDS );
+	$cat      = $categories[ min( count( $categories ) - 1, (int) floor( pow( mt_rand( 0, 1000 ) / 1000, 1.3 ) * count( $categories ) ) ) ];
+	$subject  = $subjects[ $cat ][ mt_rand( 0, count( $subjects[ $cat ] ) - 1 ) ];
+	$si       = mt_rand( 0, count( $site_ids ) - 1 );
+	$closed   = $age > 3 ? ( mt_rand( 0, 9 ) > 0 ) : ( mt_rand( 0, 3 ) === 0 );
+	$response = $created + mt_rand( 600, $age > 60 ? 14 * HOUR_IN_SECONDS : 6 * HOUR_IN_SECONDS );
+	$close_at = $closed ? $response + mt_rand( HOUR_IN_SECONDS, 3 * DAY_IN_SECONDS ) : null;
+	$flags    = array();
+	foreach ( array_rand( $flag_pool, mt_rand( 1, 3 ) ) as $fi ) {
+		$f       = $flag_pool[ $fi ];
+		$flags[] = array( 'level' => $f[0], 'code' => $f[1], 'title' => $f[2], 'detail' => $f[3] );
+	}
+	if ( 'Checkout & payments' === $cat && mt_rand( 0, 1 ) ) {
+		$flags[] = array( 'level' => 'critical', 'code' => 'errors', 'title' => '3 errors from WooCommerce', 'detail' => 'First seen after: Updated plugin WooCommerce 9.3.1.' );
+	}
+	$rating = $closed && mt_rand( 0, 9 ) < 7 ? max( 1, min( 5, 6 - (int) floor( pow( mt_rand( 0, 1000 ) / 1000, 2.2 ) * 5 ) ) ) : 0;
+	$status = $closed ? 'closed' : ( mt_rand( 0, 1 ) ? 'pending' : 'open' );
+	$wpdb->insert(
+		Helpdesk_Hero_Hub_DB::table( 'tickets' ),
+		array(
+			'site_id'           => $site_ids[ $si ],
+			'subject'           => $subject,
+			'status'            => $status,
+			'priority'          => array( 'low', 'normal', 'normal', 'normal', 'high', 'urgent' )[ mt_rand( 0, 5 ) ],
+			'category'          => $cat,
+			'customer_name'     => $names[ $si ],
+			'customer_email'    => 'owner@' . wp_parse_url( $fake_sites[ $si ][1], PHP_URL_HOST ),
+			'description'       => $subject . '. ' . 'It started a few days ago and our customers noticed it first.',
+			'diagnostics'       => wp_json_encode( array( 'environment' => array( 'wordpress' => '7.0.1', 'php' => mt_rand( 0, 3 ) ? '8.3.12' : '8.0.30', 'server' => 'nginx/1.26', 'memory_limit' => '256M' ) ) ),
+			'flags'             => wp_json_encode( $flags ),
+			'channel'           => mt_rand( 0, 11 ) ? 'hub' : 'email',
+			'tags'              => wp_json_encode( array_values( array_slice( $tag_for[ $cat ], 0, mt_rand( 0, 2 ) ) ) ),
+			'rating'            => $rating,
+			'rating_comment'    => $rating ? $comments[ mt_rand( 0, count( $comments ) - 1 ) ] : null,
+			'rated_at'          => $rating ? gmdate( 'Y-m-d H:i:s', $close_at + mt_rand( 600, DAY_IN_SECONDS ) ) : null,
+			'first_response_at' => $response < time() ? gmdate( 'Y-m-d H:i:s', $response ) : null,
+			'closed_at'         => $close_at ? gmdate( 'Y-m-d H:i:s', min( time(), $close_at ) ) : null,
+			'created_at'        => gmdate( 'Y-m-d H:i:s', $created ),
+			'updated_at'        => gmdate( 'Y-m-d H:i:s', min( time(), $close_at ? $close_at : $response ) ),
+		)
+	);
+	$tid = (int) $wpdb->insert_id;
+	if ( $response < time() ) {
+		$wpdb->insert(
+			Helpdesk_Hero_Hub_DB::table( 'outbox' ),
+			array(
+				'site_id'       => $site_ids[ $si ],
+				'hub_ticket_id' => $tid,
+				'type'          => 'reply',
+				'payload'       => wp_json_encode( array( 'author' => 'Sam Rivera', 'body' => $replies[ mt_rand( 0, count( $replies ) - 1 ) ], 'thread_id' => 'demo-' . $tid, 'created_at' => gmdate( 'c', $response ) ) ),
+				'created_by'    => 1,
+				'created_at'    => gmdate( 'Y-m-d H:i:s', $response ),
+			)
+		);
+	}
+	if ( $rating ) {
+		$wpdb->insert(
+			Helpdesk_Hero_Hub_DB::table( 'outbox' ),
+			array(
+				'site_id'       => $site_ids[ $si ],
+				'hub_ticket_id' => $tid,
+				'type'          => 'rating',
+				'payload'       => wp_json_encode( array( 'rating' => $rating, 'comment' => '' ) ),
+				'created_at'    => gmdate( 'Y-m-d H:i:s', min( time(), $close_at + 3600 ) ),
+			)
+		);
+	}
+}
+
+/* Connection code for the real customer site. */
+$invite = Helpdesk_Hero_Hub::create_invite( 'Northwind Coffee Roasters', 'nora@northwind.example' );
+restore_current_blog();
+
+/* ------------------------------------------------------------------ Customer (site 2) */
+
+if ( ! $customer_blog ) {
+	return;
+}
+
+switch_to_blog( $customer_blog );
+Helpdesk_Hero_DB::install();
+update_option( 'blogname', 'Northwind Coffee Roasters' );
+Helpdesk_Hero_Settings::update( array( 'notify_email' => 'nora@northwind.example' ) );
+
+// Some history for the change timeline and health check.
+Helpdesk_Hero_Monitor::record( 'change', 'plugin_updated', 'woocommerce/woocommerce.php', array( 'name' => 'WooCommerce', 'version' => '9.3.1' ) );
+Helpdesk_Hero_Monitor::record( 'change', 'plugin_activated', 'wp-super-cache/wp-cache.php', array( 'name' => 'WP Super Cache', 'version' => '1.12.4' ) );
+Helpdesk_Hero_Monitor::record( 'error', 'php_fatal', 'plugin:woocommerce', array( 'message' => 'Uncaught Error: Call to undefined method WC_Cart::get_cart_contents_count()', 'file' => 'wp-content/plugins/woocommerce/includes/class-wc-cart.php', 'line' => 1873, 'url' => '/checkout/' ) );
+Helpdesk_Hero_Monitor::record( 'error', 'js_error', 'plugin:wp-super-cache', array( 'message' => 'Uncaught TypeError: Cannot read properties of null (reading "addEventListener")', 'file' => '/wp-content/plugins/wp-super-cache/js/admin.js', 'line' => 42, 'url' => '/wp-admin/options-general.php' ) );
+
+$paired = Helpdesk_Hero_Connection::pair( $invite['code'] );
+if ( is_wp_error( $paired ) ) {
+	file_put_contents( '/tmp/hdh-seed-error.txt', $paired->get_error_message() );
+	restore_current_blog();
+	return;
+}
+
+$send = static function ( array $args ) {
+	return Helpdesk_Hero_Connection::send_ticket(
+		array_merge(
+			array(
+				'contact_name'  => 'Nora Patel',
+				'contact_email' => 'nora@northwind.example',
+				'priority'      => 'normal',
+			),
+			$args
+		)
+	);
+};
+
+// 1. In progress: access granted, support replied and logged in.
+$t1 = $send(
+	array(
+		'subject'     => 'Checkout page is blank after the last update',
+		'description' => "Since yesterday the checkout page shows a white screen and customers can't pay.\nI updated a few plugins right before it started (WooCommerce and something else, I think).",
+		'priority'    => 'urgent',
+		'category'    => 'Checkout & payments',
+		'page_url'    => home_url( '/checkout/' ),
+		'grant'       => true,
+		'hours'       => 72,
+		'role'        => 'restricted_admin',
+	)
+);
+
+// 2. Solved and rated.
+$t2 = $send(
+	array(
+		'subject'     => 'Order confirmation emails are not arriving',
+		'description' => 'Customers say they don’t get the order confirmation email. Our own test orders don’t get one either.',
+		'priority'    => 'high',
+		'category'    => 'Email delivery',
+		'grant'       => true,
+		'hours'       => 24,
+	)
+);
+
+// 3. A question, no access.
+$t3 = $send(
+	array(
+		'subject'     => 'How do I add a second shipping zone?',
+		'description' => 'We want to start shipping to Ireland with a different rate. Where do I set that up?',
+		'priority'    => 'low',
+		'category'    => 'How-to',
+		'grant'       => false,
+	)
+);
+
+// 4. "Email it myself", not sent yet.
+$send(
+	array(
+		'subject'     => 'Product images look blurry on mobile',
+		'description' => 'Since we changed theme, product photos on phones look blurry. Desktop is fine.',
+		'category'    => 'Performance',
+		'manual'      => true,
+		'grant'       => false,
+	)
+);
+
+$local = array();
+foreach ( array( $t1, $t2, $t3 ) as $t ) {
+	$local[] = is_wp_error( $t ) ? null : Helpdesk_Hero_Tickets::get( $t['ticket_id'] );
+}
+
+// Support activity on ticket 1, as if the agent logged in.
+if ( $local[0] && $local[0]['grant_id'] ) {
+	$g = (int) $local[0]['grant_id'];
+	global $wpdb;
+	// Sam clicks "Log in" in the hub: the site gives Sam a personal support account.
+	switch_to_blog( 1 );
+	Helpdesk_Hero_Hub::login_url( Helpdesk_Hero_Hub::ticket( (int) $local[0]['remote_id'] ) );
+	restore_current_blog();
+	$sam_account = (int) Helpdesk_Hero_Access::get( $g )['token_user_id'];
+	$wpdb->update( Helpdesk_Hero_DB::table( 'log' ), array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - 42 * MINUTE_IN_SECONDS ) ), array( 'grant_id' => $g, 'action' => 'link_issued' ) );
+	$wpdb->update( Helpdesk_Hero_DB::table( 'grants' ), array( 'token_used_at' => gmdate( 'Y-m-d H:i:s', time() - 40 * MINUTE_IN_SECONDS ) ), array( 'id' => $g ) );
+	// The ticket was opened (with access) about an hour ago; support got to work after that.
+	$hour_ago = gmdate( 'Y-m-d H:i:s', time() - 55 * MINUTE_IN_SECONDS );
+	$wpdb->update( Helpdesk_Hero_DB::table( 'grants' ), array( 'created_at' => $hour_ago ), array( 'id' => $g ) );
+	$wpdb->update( Helpdesk_Hero_DB::table( 'log' ), array( 'created_at' => $hour_ago ), array( 'grant_id' => $g, 'action' => 'access_granted' ) );
+	$wpdb->update( Helpdesk_Hero_DB::table( 'tickets' ), array( 'created_at' => $hour_ago ), array( 'id' => (int) $local[0]['id'] ) );
+	$wpdb->update( Helpdesk_Hero_DB::table( 'messages' ), array( 'created_at' => $hour_ago ), array( 'ticket_id' => (int) $local[0]['id'] ) );
+	switch_to_blog( 1 );
+	$wpdb->update( Helpdesk_Hero_Hub_DB::table( 'tickets' ), array( 'created_at' => $hour_ago ), array( 'id' => (int) $local[0]['remote_id'] ) );
+	restore_current_blog();
+	$steps = array(
+		array( 'access', 'support_login', '', array() ),
+		array( 'activity', 'page_view', '/wp-admin/plugins.php', array() ),
+		array( 'activity', 'safe_mode_on', '', array( 'disabled' => array( 'wp-super-cache/wp-cache.php' ) ) ),
+		array( 'activity', 'page_view', '/checkout/', array() ),
+		array( 'change', 'plugin_deactivated', 'wp-super-cache/wp-cache.php', array( 'name' => 'WP Super Cache', 'version' => '1.12.4' ) ),
+		array( 'activity', 'option_updated', 'woocommerce_checkout_page_id', array( 'from' => '7', 'to' => '12' ) ),
+		array( 'activity', 'safe_mode_off', '', array() ),
+	);
+	wp_set_current_user( $sam_account ? $sam_account : 1 );
+	foreach ( $steps as $i => $st ) {
+		Helpdesk_Hero_Monitor::record( $st[0], $st[1], $st[2], $st[3], $g );
+		$wpdb->update( Helpdesk_Hero_DB::table( 'log' ), array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - ( 40 - $i * 5 ) * MINUTE_IN_SECONDS ) ), array( 'id' => $wpdb->insert_id ) );
+	}
+	wp_set_current_user( 1 );
+}
+restore_current_blog();
+
+/* ------------------------------------------------------------------ Hub replies (site 1) */
+
+switch_to_blog( 1 );
+$hub_ticket = static function ( $row ) {
+	return $row ? Helpdesk_Hero_Hub::ticket( (int) $row['remote_id'] ) : null;
+};
+if ( $h1 = $hub_ticket( $local[0] ) ) {
+	Helpdesk_Hero_Hub::set_tags( $h1, array( 'woocommerce', 'conflict' ) );
+	Helpdesk_Hero_Hub::agent_reply( Helpdesk_Hero_Hub::ticket( $h1['id'] ), "Hi Nora,\n\nThanks for the details. The health check already pointed at it: the checkout error started right after WP Super Cache was switched on, and it was caching the checkout page.\n\nI've switched WP Super Cache off for now and the checkout loads again. Could you place a test order and let me know?\n\nSam" );
+}
+if ( $h2 = $hub_ticket( $local[1] ) ) {
+	Helpdesk_Hero_Hub::set_tags( $h2, array( 'quick-fix' ) );
+	Helpdesk_Hero_Hub::agent_reply( Helpdesk_Hero_Hub::ticket( $h2['id'] ), "Hi Nora,\n\nYour site was sending email without authentication, so most providers rejected it. I've connected WP Mail SMTP to your Google Workspace account and sent a test order: it arrived in a few seconds.\n\nSam" );
+	Helpdesk_Hero_Hub::set_status( Helpdesk_Hero_Hub::ticket( $h2['id'] ), 'closed' );
+}
+if ( $h3 = $hub_ticket( $local[2] ) ) {
+	Helpdesk_Hero_Hub::set_tags( $h3, array( 'how-to' ) );
+}
+restore_current_blog();
+
+/* Rate ticket 2 from the customer site. */
+switch_to_blog( $customer_blog );
+if ( $local[1] ) {
+	Helpdesk_Hero_Connection::rate( (int) $local[1]['id'], 5, 'Fixed within the hour, and Sam explained what was wrong. Thank you!' );
+}
+restore_current_blog();
+
+/* A dashboard message from the hub. */
+switch_to_blog( 1 );
+foreach ( Helpdesk_Hero_Hub::sites() as $site ) {
+	if ( 'Northwind Coffee Roasters' === $site['label'] ) {
+		Helpdesk_Hero_Hub::enqueue(
+			(int) $site['id'],
+			0,
+			'notice',
+			array(
+				'title'  => 'WooCommerce security release',
+				'body'   => 'WooCommerce 9.4.2 fixes a security issue. Please update this week, or reply to any ticket and we’ll do it for you.',
+				'level'  => 'warning',
+				'action' => array(
+					'label' => 'Update plugins',
+					'url'   => 'admin:update-core.php',
+				),
+			)
+		);
+	}
+}
+restore_current_blog();
+
+file_put_contents( '/tmp/hdh-seed-done.txt', 'ok' );
