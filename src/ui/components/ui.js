@@ -1,6 +1,7 @@
 /* Generated from packages/ui by bin/sync-ui.mjs. Edit the package, not this copy. */
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	Component,
 	createContext,
 	useCallback,
 	useContext,
@@ -23,25 +24,71 @@ export function Card( {
 	foot,
 	...rest
 } ) {
+	// Cards inside a ".hdh-panels" column (a ticket's side panels) fold open and shut; the
+	// choice is remembered per card title. Detected from the page, so cards from add-ons (which
+	// bundle their own copy of this component) behave the same.
+	const ref = useRef( null );
+	const [ foldable, setFoldable ] = useState( false );
+	const [ closed, setClosed ] = useState( false );
+	const key = typeof title === 'string' ? `hdh-card:${ title }` : '';
+	useEffect( () => {
+		if ( ! key || ! ref.current || ! ref.current.parentElement ) {
+			return;
+		}
+		if ( ref.current.parentElement.closest( '.hdh-panels' ) ) {
+			setFoldable( true );
+			try {
+				setClosed( window.localStorage.getItem( key ) === '1' );
+			} catch ( e ) {}
+		}
+	}, [ key ] );
+	const toggle = () => {
+		setClosed( ( c ) => {
+			try {
+				window.localStorage.setItem( key, c ? '0' : '1' );
+			} catch ( e ) {}
+			return ! c;
+		} );
+	};
 	return (
-		<section className={ `hdh-card ${ className }` } { ...rest }>
+		<section
+			ref={ ref }
+			className={ `hdh-card ${ className } ${ foldable ? 'is-foldable' : '' } ${
+				closed ? 'is-closed' : ''
+			}` }
+			{ ...rest }
+		>
 			{ ( title || action ) && (
 				<header className="hdh-card__head">
 					<div>
-						{ title && (
-							<h2 className="hdh-card__title">{ title }</h2>
-						) }
-						{ sub && <p className="hdh-card__sub">{ sub }</p> }
+						{ title &&
+							( foldable ? (
+								<h2 className="hdh-card__title">
+									<button
+										type="button"
+										className="hdh-card__fold"
+										aria-expanded={ ! closed }
+										onClick={ toggle }
+									>
+										<Icon name="chevron" size={ 15 } />
+										{ title }
+									</button>
+								</h2>
+							) : (
+								<h2 className="hdh-card__title">{ title }</h2>
+							) ) }
+						{ sub && ! closed && <p className="hdh-card__sub">{ sub }</p> }
 					</div>
-					{ action }
+					{ ! closed && action }
 				</header>
 			) }
-			{ bodyClass === null ? (
-				children
-			) : (
-				<div className={ bodyClass }>{ children }</div>
-			) }
-			{ foot && <footer className="hdh-card__foot">{ foot }</footer> }
+			{ ! closed &&
+				( bodyClass === null ? (
+					children
+				) : (
+					<div className={ bodyClass }>{ children }</div>
+				) ) }
+			{ foot && ! closed && <footer className="hdh-card__foot">{ foot }</footer> }
 		</section>
 	);
 }
@@ -421,7 +468,9 @@ export function Drawer( {
 						aria-label={ __( 'Close', 'helpdesk-hero' ) }
 					/>
 				</header>
-				<div className="hdh-drawer__body">{ children }</div>
+				<div className="hdh-drawer__body">
+					<ErrorBoundary>{ children }</ErrorBoundary>
+				</div>
 				{ footer && (
 					<footer className="hdh-drawer__foot">{ footer }</footer>
 				) }
@@ -437,11 +486,20 @@ const ToastContext = createContext( () => {} );
 export function ToastProvider( { children } ) {
 	const [ toast, setToast ] = useState( null );
 	const timer = useRef();
-	const show = useCallback( ( message, icon = 'check' ) => {
+	// toast( message, icon, { action: { label, onClick }, duration } ). An action (such as Undo)
+	// keeps the toast up longer so there's time to use it.
+	const show = useCallback( ( message, icon = 'check', options = {} ) => {
 		window.clearTimeout( timer.current );
-		setToast( { message, icon } );
-		timer.current = window.setTimeout( () => setToast( null ), 2600 );
+		setToast( { message, icon, action: options.action || null } );
+		timer.current = window.setTimeout(
+			() => setToast( null ),
+			options.duration || ( options.action ? 6000 : 2600 )
+		);
 	}, [] );
+	const close = () => {
+		window.clearTimeout( timer.current );
+		setToast( null );
+	};
 	return (
 		<ToastContext.Provider value={ show }>
 			{ children }
@@ -452,6 +510,18 @@ export function ToastProvider( { children } ) {
 				<div className="hdh-toast" role="status">
 					<Icon name={ toast.icon } size={ 15 } />
 					{ toast.message }
+					{ toast.action && (
+						<button
+							type="button"
+							className="hdh-toast__action"
+							onClick={ () => {
+								close();
+								toast.action.onClick();
+							} }
+						>
+							{ toast.action.label }
+						</button>
+					) }
 				</div>
 			) }
 		</ToastContext.Provider>
@@ -492,6 +562,70 @@ export function ErrorNotice( { error, onRetry } ) {
 			) }
 		</div>
 	);
+}
+
+/* ------------------------------------------------------------------ Error boundary */
+
+/**
+ * If something on a screen fails, show what went wrong (with a way back) instead of a blank
+ * dashboard. `resetKey` (the route) clears the error when you go elsewhere.
+ */
+export class ErrorBoundary extends Component {
+	constructor( props ) {
+		super( props );
+		this.state = { error: null };
+	}
+
+	static getDerivedStateFromError( error ) {
+		return { error };
+	}
+
+	componentDidCatch( error, info ) {
+		// Kept in the browser console for support.
+		// eslint-disable-next-line no-console
+		console.error( 'Helpdesk Hero:', error, info && info.componentStack );
+	}
+
+	componentDidUpdate( prev ) {
+		if ( prev.resetKey !== this.props.resetKey && this.state.error ) {
+			this.setState( { error: null } );
+		}
+	}
+
+	render() {
+		if ( ! this.state.error ) {
+			return this.props.children;
+		}
+		return (
+			<div className="hdh-banner" role="alert">
+				<span className="hdh-banner__icon">
+					<Icon name="alert" />
+				</span>
+				<div className="hdh-banner__text">
+					<strong>
+						{ __( 'This screen ran into a problem.', 'helpdesk-hero' ) }
+					</strong>{ ' ' }
+					{ __(
+						'The rest of the dashboard still works. If it happens again, send this message to support:',
+						'helpdesk-hero'
+					) }
+					<code className="hdh-error-detail">
+						{ String(
+							( this.state.error && this.state.error.message ) ||
+								this.state.error
+						) }
+					</code>
+				</div>
+				<Button
+					size="sm"
+					icon="refresh"
+					onClick={ () => window.location.reload() }
+				>
+					{ __( 'Reload', 'helpdesk-hero' ) }
+				</Button>
+			</div>
+		);
+	}
 }
 
 /* ------------------------------------------------------------------ Page head */

@@ -143,11 +143,13 @@ final class Helpdesk_Hero_Notices {
 				array(
 					'id'    => 'helpdesk-hero-session',
 					'title' => '<span class="hh-bar hh-bar--support">' . esc_html(
-						sprintf(
-							/* translators: %s: time left */
-							__( 'Support session · %s left', 'helpdesk-hero' ),
-							human_time_diff( time(), strtotime( $grant['expires_at'] . ' UTC' ) )
-						)
+						Helpdesk_Hero_Access::is_permanent( $grant )
+							? __( 'Support session', 'helpdesk-hero' )
+							: sprintf(
+								/* translators: %s: time left */
+								__( 'Support session · %s left', 'helpdesk-hero' ),
+								human_time_diff( time(), strtotime( $grant['expires_at'] . ' UTC' ) )
+							)
 					) . '</span>',
 					'meta'  => array( 'title' => __( 'Everything you do is recorded and shown to the site owner.', 'helpdesk-hero' ) ),
 				)
@@ -210,12 +212,18 @@ final class Helpdesk_Hero_Notices {
 		);
 		echo '</strong> ';
 		echo esc_html(
-			sprintf(
-				/* translators: 1: what is logged, 2: time left */
-				__( 'Under your team’s policy, the site owner sees a log of %1$s. Access ends in %2$s. Reply to the customer from your support hub, not from here.', 'helpdesk-hero' ),
-				$logged,
-				human_time_diff( time(), strtotime( $grant['expires_at'] . ' UTC' ) )
-			)
+			Helpdesk_Hero_Access::is_permanent( $grant )
+				? sprintf(
+					/* translators: %s: what is logged */
+					__( 'Under your team’s policy, the site owner sees a log of %s. This access has no end date. Reply to the customer from your support hub, not from here.', 'helpdesk-hero' ),
+					$logged
+				)
+				: sprintf(
+					/* translators: 1: what is logged, 2: time left */
+					__( 'Under your team’s policy, the site owner sees a log of %1$s. Access ends in %2$s. Reply to the customer from your support hub, not from here.', 'helpdesk-hero' ),
+					$logged,
+					human_time_diff( time(), strtotime( $grant['expires_at'] . ' UTC' ) )
+				)
 		);
 		echo ' <a href="' . esc_url( admin_url( 'admin.php?page=' . Helpdesk_Hero_Admin::SLUG ) ) . '">' . esc_html__( 'Session details', 'helpdesk-hero' ) . '</a>';
 		echo '</p></div>';

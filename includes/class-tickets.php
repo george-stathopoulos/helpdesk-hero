@@ -182,10 +182,24 @@ final class Helpdesk_Hero_Tickets {
 	}
 
 	/**
+	 * Delete one message (a reply the hub didn't accept). Its files become unsent uploads again.
+	 *
+	 * @param int $id Message.
+	 */
+	public static function delete_message( $id ) {
+		global $wpdb;
+		$wpdb->delete( Helpdesk_Hero_DB::table( 'messages' ), array( 'id' => (int) $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update( Helpdesk_Hero_DB::table( 'attachments' ), array( 'ticket_id' => 0, 'message_id' => 0 ), array( 'message_id' => (int) $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Delete everything (used by the privacy eraser and uninstall).
 	 */
 	public static function delete_all() {
 		global $wpdb;
+		if ( get_option( Helpdesk_Hero_DB::OPTION ) === Helpdesk_Hero_DB::VERSION ) {
+			Helpdesk_Hero_Attachments::cleanup( true );
+		}
 		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', Helpdesk_Hero_DB::table( 'messages' ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', Helpdesk_Hero_DB::table( 'tickets' ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}

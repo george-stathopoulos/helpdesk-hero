@@ -31,13 +31,19 @@ export default function Access() {
 		return <Loading />;
 	}
 	const policy = data.policy;
+	const current = data.active[ 0 ] || null;
 
 	const give = () => {
 		setBusy( true );
 		send( 'admin/access', 'POST', giving )
 			.then( ( r ) => {
-				setCreated( r.url );
+				setCreated( r.existing ? '' : r.url );
 				setGiving( null );
+				toast(
+					r.existing
+						? __( 'Access changed', 'helpdesk-hero' )
+						: __( 'Access given', 'helpdesk-hero' )
+				);
 				reload();
 			} )
 			.catch( ( e ) => toast( message( e ), 'alert' ) )
@@ -60,29 +66,38 @@ export default function Access() {
 							setCreated( '' );
 							setGiving( {
 								hours: compose.data.access.default_hours,
-								role: compose.data.access.default_role,
+								role: current
+									? current.role
+									: compose.data.access.default_role,
 								note: '',
 							} );
 						} }
 					>
-						{ __(
-							'Give access without a ticket',
-							'helpdesk-hero'
-						) }
+						{ current
+							? __( 'Change access', 'helpdesk-hero' )
+							: __( 'Give access', 'helpdesk-hero' ) }
 					</Button>
 				) }
 			</PageHead>
 
 			{ giving && (
 				<Card
-					title={ __(
-						'Give access without a ticket',
-						'helpdesk-hero'
-					) }
-					sub={ __(
-						'For example when support asks by phone. You get a one-time login link to send them.',
-						'helpdesk-hero'
-					) }
+					title={
+						current
+							? __( 'Change access', 'helpdesk-hero' )
+							: __( 'Give access', 'helpdesk-hero' )
+					}
+					sub={
+						current
+							? __(
+									'Access is already active. Choose a new length (counted from now) or access level; open tickets keep using it and no new accounts are made.',
+									'helpdesk-hero'
+							  )
+							: __(
+									'For example when support asks by phone. Your support team can log in from any open ticket, or you get a one-time login link to send them.',
+									'helpdesk-hero'
+							  )
+					}
 					style={ { marginBottom: 18 } }
 				>
 					<div className="hdh-stack">
@@ -110,7 +125,9 @@ export default function Access() {
 								disabled={ busy }
 								onClick={ give }
 							>
-								{ __( 'Create login link', 'helpdesk-hero' ) }
+								{ current
+									? __( 'Save changes', 'helpdesk-hero' )
+									: __( 'Give access', 'helpdesk-hero' ) }
 							</Button>
 							<Button
 								variant="ghost"
@@ -155,24 +172,15 @@ export default function Access() {
 					/>
 				</Card>
 			) : (
-				<div className="hdh-grid" style={ { marginBottom: 18 } }>
+				<div className="hdh-stack" style={ { marginBottom: 18 } }>
 					{ data.active.map( ( g ) => (
 						<Card
 							key={ g.id }
-							className="hdh-span-6"
-							title={
-								g.ticket ? (
-									<a href={ `#/ticket/${ g.ticket.id }` }>
-										{ g.ticket.subject }
-									</a>
-								) : (
-									g.note ||
-									__(
-										'Access without a ticket',
-										'helpdesk-hero'
-									)
-								)
-							}
+							title={ __(
+								'Your support team has access to this site',
+								'helpdesk-hero'
+							) }
+							sub={ g.note || null }
 						>
 							<GrantPanel
 								grant={ g }

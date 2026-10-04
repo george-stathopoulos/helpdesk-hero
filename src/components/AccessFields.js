@@ -12,6 +12,9 @@ import Icon from '../ui/components/Icon';
  * @param {Function} props.onChange Change handler.
  * @return {JSX.Element} Fields.
  */
+// Same value as Helpdesk_Hero_Policy::PERMANENT: access with no end date.
+export const PERMANENT = 999999;
+
 export default function AccessFields( { access, value, onChange } ) {
 	const durations = access.duration_options || [];
 	const roles = access.role_options || [];
@@ -61,6 +64,17 @@ export default function AccessFields( { access, value, onChange } ) {
 					</div>
 				) }
 			</div>
+			{ ( value.hours || access.default_hours ) === PERMANENT && (
+				<div className="hdh-policy-note">
+					<Icon name="clock" size={ 15 } />
+					<span>
+						{ __(
+							'No end date: access lasts until you or your support team end it, even after tickets close. Handy while your site is being built or for ongoing care. Everything is still logged, and you can end it any time under Support access.',
+							'helpdesk-hero'
+						) }
+					</span>
+				</div>
+			) }
 			<div className="hdh-policy-note">
 				<Icon name="shield" size={ 15 } />
 				<span>

@@ -956,6 +956,18 @@ body.hdh-app {
 	grid-template-columns: minmax(0, 1fr) auto;
 	gap: 6px 12px;
 	align-items: center;
+
+	&.is-clickable {
+		margin: -4px -6px;
+		padding: 4px 6px;
+		border-radius: 6px;
+		cursor: pointer;
+
+		&:hover,
+		&:focus-visible {
+			background: var(--hdh-surface-2);
+		}
+	}
 }
 
 .hdh-bars__label {
@@ -1370,9 +1382,10 @@ body.hdh-app {
 	}
 }
 
-.hdh-select {
-	padding-right: 30px !important;
-	background-position: right 8px center;
+.hdh-select,
+.hdh-root .hdh-select {
+	padding-right: 32px !important;
+	background-position: right 9px center;
 }
 
 .hdh-root .hdh-textarea {
@@ -1915,6 +1928,23 @@ body.hdh-app {
 	align-items: center;
 	gap: 8px;
 	animation: hdh-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.hdh-toast__action {
+	margin-left: 6px;
+	padding: 3px 10px;
+	border: 1px solid color-mix(in srgb, var(--hdh-surface) 45%, transparent);
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		background: color-mix(in srgb, var(--hdh-surface) 18%, transparent);
+		outline: none;
+	}
 }
 
 .hdh-section-title {

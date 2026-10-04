@@ -38,7 +38,8 @@ function topRounded( x, y, w, h, r ) {
  * @param {Array}    props.series [{ id, label, values, color }], bottom first.
  * @param {Function} props.format Value formatter.
  * @param {number}   props.height Plot height in px (axis band added).
- * @param {string}   props.title  Accessible name.
+ * @param {string}   props.title    Accessible name.
+ * @param {Function} props.onSelect Optional: called with a day when its column is clicked (or Enter).
  * @return {JSX.Element} Chart.
  */
 export function StackedColumns( {
@@ -47,6 +48,7 @@ export function StackedColumns( {
 	format,
 	height = 240,
 	title,
+	onSelect,
 } ) {
 	const [ ref, width ] = useWidth();
 	const [ hidden, setHidden ] = useState( () => new Set() );
@@ -98,6 +100,10 @@ export function StackedColumns( {
 
 	const onKey = ( e ) => {
 		if ( ! dates.length ) {
+			return;
+		}
+		if ( onSelect && e.key === 'Enter' && active !== null ) {
+			onSelect( dates[ active ] );
 			return;
 		}
 		if ( e.key === 'ArrowRight' || e.key === 'ArrowLeft' ) {
@@ -248,6 +254,12 @@ export function StackedColumns( {
 							tabIndex={ 0 }
 							onKeyDown={ onKey }
 							onMouseMove={ onMove }
+							onClick={
+								onSelect
+									? () => active !== null && onSelect( dates[ active ] )
+									: undefined
+							}
+							style={ onSelect ? { cursor: 'pointer' } : undefined }
 							onMouseLeave={ () => setActive( null ) }
 							onBlur={ () => setActive( null ) }
 						>
@@ -481,15 +493,29 @@ export function Sparkline( { values = [], width = 96, height = 30 } ) {
  *
  * @param {Object}   props        Props.
  * @param {Array}    props.items  [{ id, label, value, meta, color, prefix }].
- * @param {Function} props.format Value formatter.
+ * @param {Function} props.format   Value formatter.
+ * @param {Function} props.onSelect Optional: called with an item when its row is clicked.
  * @return {JSX.Element} List.
  */
-export function BarList( { items, format } ) {
+export function BarList( { items, format, onSelect } ) {
 	const max = Math.max( ...items.map( ( i ) => i.value ), 0 ) || 1;
 	return (
 		<ul className="hdh-bars">
 			{ items.map( ( item ) => (
-				<li key={ item.id } className="hdh-bars__row">
+				<li
+					key={ item.id }
+					className={ `hdh-bars__row ${ onSelect ? 'is-clickable' : '' }` }
+					role={ onSelect ? 'button' : undefined }
+					tabIndex={ onSelect ? 0 : undefined }
+					onClick={ onSelect ? () => onSelect( item ) : undefined }
+					onKeyDown={
+						onSelect
+							? ( e ) =>
+									( e.key === 'Enter' || e.key === ' ' ) &&
+									( e.preventDefault(), onSelect( item ) )
+							: undefined
+					}
+				>
 					<div className="hdh-bars__label">
 						{ item.prefix }
 						<span title={ item.label }>{ item.label }</span>

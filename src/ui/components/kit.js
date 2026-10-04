@@ -3,9 +3,10 @@
  * Helpdesk Hero building blocks on top of the Gatehouse kit (ui.js): form fields, the
  * conversation thread, health flags, copy boxes and status pills.
  */
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { useState, useEffect, useRef, createRoot } from '@wordpress/element';
 import Icon from './Icon';
+import { RichText, FormatBar } from './rich';
 import { Button, Pill } from './ui';
 import { when, ago } from '../lib/time';
 
@@ -83,14 +84,18 @@ export function TextArea( {
 	rows = 6,
 	placeholder,
 	className,
+	formatting = false,
 	...rest
 } ) {
 	const id = useId();
+	const ref = useRef( null );
 	return (
 		<Field label={ label } help={ help } id={ id } className={ className }>
+			{ formatting && <FormatBar target={ ref } value={ value ?? '' } onChange={ onChange } /> }
 			<textarea
+				ref={ ref }
 				id={ id }
-				className="hdh-input hdh-textarea"
+				className={ `hdh-input hdh-textarea ${ formatting ? 'has-formatbar' : '' }` }
 				rows={ rows }
 				value={ value ?? '' }
 				placeholder={ placeholder }
@@ -107,12 +112,19 @@ export function SelectField( {
 	value,
 	onChange,
 	options,
-	className,
+	className = '',
+	hideLabel = false,
 	...rest
 } ) {
 	const id = useId();
 	return (
-		<Field label={ label } help={ help } id={ id } className={ className }>
+		<Field
+			label={ label }
+			help={ help }
+			id={ id }
+			hideLabel={ hideLabel }
+			className={ `${ className } ${ hideLabel ? 'is-compact' : '' }` }
+		>
 			<select
 				id={ id }
 				className="hdh-input hdh-select"
@@ -213,7 +225,9 @@ export function Thread( { items, youLabel } ) {
 					<li
 						key={ m.id }
 						className={ `hdh-msg ${
-							m.from === 'support' ? 'is-support' : 'is-you'
+							{ support: 'is-support', note: 'is-note' }[
+								m.from
+							] || 'is-you'
 						}` }
 					>
 						<div className="hdh-msg__head">
@@ -230,6 +244,12 @@ export function Thread( { items, youLabel } ) {
 								{ m.author ||
 									( m.from === 'you' ? youLabel : '' ) }
 							</strong>
+							{ m.from === 'note' && (
+								<span className="hdh-msg__note">
+									<Icon name="lock" size={ 11 } />
+									{ __( 'Internal note · the customer doesn’t see this', 'helpdesk-hero' ) }
+								</span>
+							) }
 							<time
 								dateTime={ m.time }
 								title={ when( m.time ) }
@@ -238,12 +258,82 @@ export function Thread( { items, youLabel } ) {
 								{ ago( m.time ) }
 							</time>
 						</div>
-						<div className="hdh-msg__body">{ m.body }</div>
+						{ m.body && (
+							<div className="hdh-msg__body">
+								<RichText text={ m.body } />
+							</div>
+						) }
+						<Attachments list={ m.attachments } />
+						{ m.spots > 0 && (
+							<button
+								type="button"
+								className="hdh-spot-chip"
+								onClick={ () => {
+									const panel = document.getElementById( 'hdh-spots' );
+									if ( panel ) {
+										panel.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+									}
+								} }
+							>
+								<Icon name="pin" size={ 13 } />
+								{ sprintf(
+									/* translators: %d: number of problem spots */
+									_n( '%d problem spot', '%d problem spots', m.spots, 'helpdesk-hero' ),
+									m.spots
+								) }
+							</button>
+						) }
 					</li>
 				)
 			) }
 		</ol>
 	);
+}
+
+/**
+ * Files attached to a message: image previews and download links.
+ *
+ * @param {Object} props      Props.
+ * @param {Array}  props.list [ { id, name, size, type, url, image } ].
+ * @return {JSX.Element|null} List.
+ */
+export function Attachments( { list } ) {
+	if ( ! list || ! list.length ) {
+		return null;
+	}
+	return (
+		<ul className="hdh-attachments">
+			{ list.map( ( a ) => (
+				<li key={ a.id }>
+					<a href={ a.url } target="_blank" rel="noopener noreferrer">
+						{ a.image ? (
+							<img src={ a.url } alt={ a.name } loading="lazy" />
+						) : (
+							<Icon name="file" size={ 16 } />
+						) }
+						<span className="hdh-attachments__name">{ a.name }</span>
+						<span className="hdh-muted">{ fileSize( a.size ) }</span>
+					</a>
+				</li>
+			) ) }
+		</ul>
+	);
+}
+
+/**
+ * "1.2 MB".
+ *
+ * @param {number} bytes Bytes.
+ * @return {string} Size.
+ */
+export function fileSize( bytes ) {
+	if ( ! bytes ) {
+		return '';
+	}
+	if ( bytes < 1024 * 1024 ) {
+		return `${ Math.max( 1, Math.round( bytes / 1024 ) ) } KB`;
+	}
+	return `${ ( bytes / 1024 / 1024 ).toFixed( 1 ) } MB`;
 }
 
 /* ------------------------------------------------------------------ Flags */
@@ -369,7 +459,58 @@ export function TicketStatus( { status, labels } ) {
 	);
 }
 
+/**
+ * Billing state of a ticket or time entry, colour-coded: unbilled (amber), invoiced (blue),
+ * paid (green).
+ *
+ * @param {Object}  props         Props.
+ * @param {string}  props.state   unbilled | invoiced | paid.
+ * @param {boolean} props.compact Icon only (with the state as its tooltip).
+ * @return {JSX.Element|null} Badge.
+ */
+export function BillingBadge( { state, compact } ) {
+	const labels = {
+		unbilled: __( 'Unbilled', 'helpdesk-hero' ),
+		invoiced: __( 'Invoiced', 'helpdesk-hero' ),
+		paid: __( 'Paid', 'helpdesk-hero' ),
+	};
+	if ( ! labels[ state ] ) {
+		return null;
+	}
+	return (
+		<span
+			className={ `hdh-bill is-${ state } ${ compact ? 'is-compact' : '' }` }
+			title={ labels[ state ] }
+		>
+			<Icon name="receipt" size={ 13 } />
+			{ compact ? (
+				<span className="screen-reader-text">{ labels[ state ] }</span>
+			) : (
+				labels[ state ]
+			) }
+		</span>
+	);
+}
+
+/**
+ * Whether an access end time means "no end date" (stored as the year 9999).
+ *
+ * @param {string} expires ISO date.
+ * @return {boolean} Permanent.
+ */
+export function isPermanentAccess( expires ) {
+	return !! expires && parseInt( String( expires ).slice( 0, 4 ), 10 ) >= 9000;
+}
+
 export function AccessState( { active, expires, emptyLabel } ) {
+	if ( active && isPermanentAccess( expires ) ) {
+		return (
+			<span className="hdh-access">
+				<span className="hdh-access__dot" />
+				{ __( 'Access with no end date', 'helpdesk-hero' ) }
+			</span>
+		);
+	}
 	if ( ! active ) {
 		return (
 			<span className="hdh-access is-off">
@@ -642,6 +783,135 @@ export function TagPills( { tags } ) {
 				</span>
 			) ) }
 		</span>
+	);
+}
+
+/* ------------------------------------------------------------------ Lists */
+
+export const PAGE_SIZES = [ 5, 10, 20, 30, 50, 100 ];
+
+/**
+ * "Sort by" select with a direction toggle.
+ *
+ * @param {Object}   props          Props.
+ * @param {Array}    props.options  [ { value, label } ].
+ * @param {string}   props.value    Sort key.
+ * @param {string}   props.order    asc | desc.
+ * @param {Function} props.onChange ( value, order ) => void.
+ * @return {JSX.Element} Control.
+ */
+export function SortControl( { options, value, order, onChange } ) {
+	return (
+		<span className="hdh-sort">
+			<select
+				className="hdh-input hdh-select"
+				aria-label={ __( 'Sort by', 'helpdesk-hero' ) }
+				value={ value }
+				onChange={ ( e ) => onChange( e.target.value, order ) }
+			>
+				{ options.map( ( o ) => (
+					<option key={ o.value } value={ o.value }>
+						{ sprintf(
+							/* translators: %s: what the list is sorted by */
+							__( 'Sort: %s', 'helpdesk-hero' ),
+							o.label
+						) }
+					</option>
+				) ) }
+			</select>
+			<button
+				type="button"
+				className="hdh-btn is-sm hdh-sort__dir"
+				onClick={ () =>
+					onChange( value, order === 'asc' ? 'desc' : 'asc' )
+				}
+				aria-label={
+					order === 'asc'
+						? __( 'Ascending. Switch to descending', 'helpdesk-hero' )
+						: __( 'Descending. Switch to ascending', 'helpdesk-hero' )
+				}
+				title={
+					order === 'asc'
+						? __( 'Ascending', 'helpdesk-hero' )
+						: __( 'Descending', 'helpdesk-hero' )
+				}
+			>
+				{ order === 'asc' ? '↑' : '↓' }
+			</button>
+		</span>
+	);
+}
+
+/**
+ * Page size and page navigation under a list.
+ *
+ * @param {Object}   props         Props.
+ * @param {number}   props.page    Current page (1-based).
+ * @param {number}   props.perPage Rows per page.
+ * @param {number}   props.total   Total rows.
+ * @param {Function} props.onPage  ( page ) => void.
+ * @param {Function} props.onPer   ( perPage ) => void.
+ * @return {JSX.Element|null} Pager.
+ */
+export function Pager( { page, perPage, total, onPage, onPer } ) {
+	if ( ! total ) {
+		return null;
+	}
+	const pages = Math.max( 1, Math.ceil( total / perPage ) );
+	const from = ( page - 1 ) * perPage + 1;
+	const to = Math.min( total, page * perPage );
+	return (
+		<div className="hdh-pager">
+			<label className="hdh-pager__size">
+				<span>{ __( 'Rows per page', 'helpdesk-hero' ) }</span>
+				<select
+					className="hdh-input hdh-select"
+					value={ perPage }
+					onChange={ ( e ) => onPer( parseInt( e.target.value, 10 ) ) }
+				>
+					{ PAGE_SIZES.map( ( n ) => (
+						<option key={ n } value={ n }>
+							{ n }
+						</option>
+					) ) }
+				</select>
+			</label>
+			<span className="hdh-muted">
+				{ sprintf(
+					/* translators: 1: first row, 2: last row, 3: total rows */
+					__( '%1$d–%2$d of %3$d', 'helpdesk-hero' ),
+					from,
+					to,
+					total
+				) }
+			</span>
+			<span className="hdh-pager__nav">
+				<Button
+					size="sm"
+					variant="ghost"
+					disabled={ page <= 1 }
+					onClick={ () => onPage( page - 1 ) }
+				>
+					{ __( 'Previous', 'helpdesk-hero' ) }
+				</Button>
+				<span className="hdh-muted">
+					{ sprintf(
+						/* translators: 1: page, 2: number of pages */
+						__( 'Page %1$d of %2$d', 'helpdesk-hero' ),
+						page,
+						pages
+					) }
+				</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					disabled={ page >= pages }
+					onClick={ () => onPage( page + 1 ) }
+				>
+					{ __( 'Next', 'helpdesk-hero' ) }
+				</Button>
+			</span>
+		</div>
 	);
 }
 

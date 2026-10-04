@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Helpdesk_Hero_DB {
 
-	const VERSION = '3';
+	const VERSION = '5';
 	const OPTION  = 'helpdesk_hero_db';
 
 	/**
@@ -50,6 +50,7 @@ final class Helpdesk_Hero_DB {
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			subject varchar(255) NOT NULL DEFAULT '',
 			status varchar(20) NOT NULL DEFAULT 'open',
+			status_label varchar(40) NOT NULL DEFAULT '',
 			channel varchar(10) NOT NULL DEFAULT 'email',
 			priority varchar(10) NOT NULL DEFAULT 'normal',
 			remote_id bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -64,6 +65,7 @@ final class Helpdesk_Hero_DB {
 			rating tinyint(1) unsigned NOT NULL DEFAULT 0,
 			rating_comment text NULL,
 			rated_at datetime NULL,
+			fields longtext NULL,
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (id),
@@ -123,6 +125,25 @@ final class Helpdesk_Hero_DB {
 			KEY grant_id (grant_id)
 			) $charset;"
 		);
+		dbDelta(
+			'CREATE TABLE ' . self::table( 'attachments' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			ticket_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			message_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			direction varchar(10) NOT NULL DEFAULT 'out',
+			remote_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			name varchar(190) NOT NULL DEFAULT '',
+			size bigint(20) unsigned NOT NULL DEFAULT 0,
+			type varchar(100) NOT NULL DEFAULT '',
+			sha256 varchar(64) NOT NULL DEFAULT '',
+			path varchar(255) NOT NULL DEFAULT '',
+			uploaded_by bigint(20) unsigned NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY ticket_id (ticket_id),
+			KEY message_id (message_id)
+			) $charset;"
+		);
 		update_option( self::OPTION, self::VERSION, false );
 	}
 
@@ -131,7 +152,7 @@ final class Helpdesk_Hero_DB {
 	 */
 	public static function uninstall() {
 		global $wpdb;
-		foreach ( array( 'tickets', 'messages', 'grants', 'log' ) as $name ) {
+		foreach ( array( 'tickets', 'messages', 'grants', 'log', 'attachments' ) as $name ) {
 			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::table( $name ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		}
 		delete_option( self::OPTION );

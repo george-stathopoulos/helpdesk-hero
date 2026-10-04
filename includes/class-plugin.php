@@ -49,10 +49,12 @@ final class Helpdesk_Hero_Plugin {
 		Helpdesk_Hero_Notices::init();
 		Helpdesk_Hero_Privacy::init();
 		Helpdesk_Hero_Admin::init();
+		Helpdesk_Hero_Pinpoint::init();
 
 		add_action( 'rest_api_init', array( 'Helpdesk_Hero_Client_REST', 'register' ) );
 		add_action( 'rest_api_init', array( 'Helpdesk_Hero_Admin_REST', 'register' ) );
 		add_action( self::PRUNE, array( 'Helpdesk_Hero_Monitor', 'prune' ) );
+		add_action( self::PRUNE, array( 'Helpdesk_Hero_Attachments', 'expire_closed' ) );
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			require_once HELPDESK_HERO_DIR . 'includes/class-cli.php';

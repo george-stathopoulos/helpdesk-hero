@@ -37,6 +37,15 @@ final class Helpdesk_Hero_Safe_Mode {
 	}
 
 	/**
+	 * Where troubleshooting mode lives: the Support session page for support, Tools for owners.
+	 *
+	 * @return string
+	 */
+	public static function url() {
+		return Helpdesk_Hero_Access::current_grant_id() ? admin_url( 'admin.php?page=' . Helpdesk_Hero_Admin::SLUG ) : admin_url( 'tools.php?page=' . self::PAGE );
+	}
+
+	/**
 	 * Who may use troubleshooting mode.
 	 *
 	 * @return bool
@@ -61,7 +70,8 @@ final class Helpdesk_Hero_Safe_Mode {
 	 * Tools > Troubleshoot.
 	 */
 	public static function menu() {
-		if ( self::can_use() ) {
+		// Support uses troubleshooting from their Support session page instead.
+		if ( self::can_use() && ! Helpdesk_Hero_Access::current_grant_id() ) {
 			self::$hook = add_management_page( __( 'Troubleshooting mode', 'helpdesk-hero' ), __( 'Troubleshoot', 'helpdesk-hero' ), 'read', self::PAGE, array( __CLASS__, 'render' ) );
 		}
 	}
@@ -77,7 +87,7 @@ final class Helpdesk_Hero_Safe_Mode {
 				array(
 					'id'    => 'helpdesk-hero-troubleshoot',
 					'title' => '<span style="background:#b32d2e;color:#fff;padding:2px 8px;border-radius:3px">' . esc_html__( 'Troubleshooting mode', 'helpdesk-hero' ) . '</span>',
-					'href'  => admin_url( 'tools.php?page=' . self::PAGE ),
+					'href'  => self::url(),
 				)
 			);
 		}
@@ -237,7 +247,7 @@ final class Helpdesk_Hero_Safe_Mode {
 	 * @param string $reason   Reason.
 	 */
 	public static function on_access_changed( $grant_id, $reason ) {
-		if ( ! in_array( $reason, array( 'revoked', 'expired' ), true ) ) {
+		if ( ! in_array( $reason, array( 'revoked', 'expired', 'support_ended', 'closed', 'deleted' ), true ) ) {
 			return;
 		}
 		$sessions = self::sessions();

@@ -360,6 +360,18 @@ final class Helpdesk_Hero_Activity {
 			case 'access_granted':
 				/* translators: 1: hours, 2: role */
 				return sprintf( __( 'Support access granted for %1$d hours (%2$s)', 'helpdesk-hero' ), $d['hours'] ?? 0, self::role_label( (string) ( $d['role'] ?? '' ) ) );
+			case 'access_changed':
+				/* translators: 1: hours, 2: role */
+				return sprintf( __( 'Support access changed: %1$d hours from now (%2$s)', 'helpdesk-hero' ), $d['hours'] ?? 0, self::role_label( (string) ( $d['role'] ?? '' ) ) );
+			case 'access_ended_support':
+				return ! empty( $d['by'] )
+					/* translators: %s: supporter */
+					? sprintf( __( 'Support access ended by %s; support accounts deleted', 'helpdesk-hero' ), $d['by'] )
+					: __( 'Support access ended by the support team; support accounts deleted', 'helpdesk-hero' );
+			case 'access_ended_deleted':
+				return __( 'Support access ended because a support account was deleted; support accounts deleted', 'helpdesk-hero' );
+			case 'access_ended_closed':
+				return __( 'Support access ended because no open tickets need it; support accounts deleted', 'helpdesk-hero' );
 			case 'access_extended':
 				/* translators: %d: hours */
 				return sprintf( __( 'Support access extended by %d hours', 'helpdesk-hero' ), $d['hours'] ?? 0 );
@@ -369,7 +381,7 @@ final class Helpdesk_Hero_Activity {
 			case 'extension_declined':
 				return __( 'Extension request declined', 'helpdesk-hero' );
 			case 'access_revoked':
-				return __( 'Support access ended by the site owner', 'helpdesk-hero' );
+				return __( 'Support access ended by the site owner; support accounts deleted', 'helpdesk-hero' );
 			case 'access_expired':
 				return __( 'Support access expired', 'helpdesk-hero' );
 			case 'support_login':
@@ -388,6 +400,10 @@ final class Helpdesk_Hero_Activity {
 			case 'hub_error':
 				/* translators: 1: request, 2: error message */
 				return sprintf( __( 'Could not reach your support team (%1$s): %2$s', 'helpdesk-hero' ), $obj, $d['message'] ?? '' );
+			case 'keys_upgraded':
+				return __( 'Connection upgraded: this site and your support team now sign requests with their own key pairs', 'helpdesk-hero' );
+			case 'keys_rotated':
+				return __( 'Your support team replaced the connection keys', 'helpdesk-hero' );
 			case 'php_fatal':
 				/* translators: 1: component, 2: message */
 				return sprintf( __( 'PHP fatal error in %1$s: %2$s', 'helpdesk-hero' ), $obj, $d['message'] ?? '' );

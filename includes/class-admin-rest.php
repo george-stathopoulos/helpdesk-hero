@@ -28,6 +28,7 @@ final class Helpdesk_Hero_Admin_REST {
 		};
 		$routes = array(
 			array( '/admin/session', 'GET', 'session', $support ),
+			array( '/admin/session/end', 'POST', 'end_session', $support ),
 			array( '/admin/state', 'GET', 'state', $owner ),
 			array( '/admin/connect', 'POST', 'connect', $owner ),
 			array( '/admin/disconnect', 'POST', 'disconnect', $owner ),
@@ -41,6 +42,9 @@ final class Helpdesk_Hero_Admin_REST {
 			array( '/admin/tickets/(?P<id>\d+)/emailed', 'POST', 'emailed', $owner ),
 			array( '/admin/tickets/(?P<id>\d+)/discard', 'POST', 'discard', $owner ),
 			array( '/admin/tickets/(?P<id>\d+)/rate', 'POST', 'rate', $owner ),
+			array( '/admin/attachments', 'POST', 'upload', $owner ),
+			array( '/admin/billing', 'GET', 'billing', $owner ),
+			array( '/admin/attachments/(?P<id>\d+)', 'GET', 'attachment', $owner ),
 			array( '/admin/compose', 'GET', 'compose', $owner ),
 			array( '/admin/access', 'GET', 'access', $owner ),
 			array( '/admin/access', 'POST', 'grant', $owner ),
@@ -211,6 +215,7 @@ final class Helpdesk_Hero_Admin_REST {
 			'note'         => $g['note'],
 			'created_at'   => self::iso( $g['created_at'] ),
 			'expires_at'   => self::iso( $g['expires_at'] ),
+			'permanent'    => Helpdesk_Hero_Access::is_permanent( $g ),
 			'ended_at'     => self::iso( $g['revoked_at'] ),
 			'link_used_at' => self::iso( $g['token_used_at'] ),
 			'link_pending' => '' !== $g['token_hash'] && empty( $g['token_used_at'] ),
@@ -220,6 +225,48 @@ final class Helpdesk_Hero_Admin_REST {
 				'by'     => (string) $g['extension_request']['by'],
 			) : null,
 			'events'       => count( Helpdesk_Hero_Monitor::query( array( 'grant_id' => (int) $g['id'], 'limit' => 1000 ) ) ),
+			'accounts'     => self::grant_accounts( $g ),
+			'tickets'      => self::grant_tickets( (int) $g['id'] ),
+		);
+	}
+
+	/**
+	 * Support accounts that exist under a grant (all are deleted when it ends).
+	 *
+	 * @param array $g Grant.
+	 * @return array[] { login, name }
+	 */
+	private static function grant_accounts( array $g ) {
+		$out = array();
+		foreach ( array_unique( array_filter( array_merge( array( (int) $g['user_id'] ), Helpdesk_Hero_Access::users_for_grant( (int) $g['id'] ) ) ) ) as $user_id ) {
+			$user = get_userdata( $user_id );
+			if ( $user ) {
+				$out[] = array(
+					'login' => $user->user_login,
+					'name'  => $user->display_name,
+				);
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Open tickets that use a grant.
+	 *
+	 * @param int $grant_id Grant.
+	 * @return array[] { id, subject }
+	 */
+	private static function grant_tickets( $grant_id ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, subject FROM %i WHERE grant_id = %d AND status <> 'closed' ORDER BY id DESC LIMIT 20", Helpdesk_Hero_DB::table( 'tickets' ), (int) $grant_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map(
+			static function ( $r ) {
+				return array(
+					'id'      => (int) $r['id'],
+					'subject' => $r['subject'],
+				);
+			},
+			$rows
 		);
 	}
 
@@ -236,12 +283,17 @@ final class Helpdesk_Hero_Admin_REST {
 		$filter = sanitize_key( (string) $request->get_param( 'status' ) );
 		$rows   = Helpdesk_Hero_Tickets::all( 'all' === $filter ? '' : ( 'closed' === $filter ? 'closed' : 'active' ), 200 );
 		$out    = array();
+		$site   = Helpdesk_Hero_Access::active();
 		foreach ( $rows as $t ) {
 			$grant = $t['grant_id'] ? Helpdesk_Hero_Access::get( (int) $t['grant_id'] ) : null;
+			if ( 'closed' !== $t['status'] && ! Helpdesk_Hero_Access::is_active( $grant ) ) {
+				$grant = $site;
+			}
 			$out[] = array(
 				'id'             => (int) $t['id'],
 				'subject'        => $t['subject'],
 				'status'         => $t['status'],
+				'status_label'   => (string) ( $t['status_label'] ?? '' ),
 				'priority'       => $t['priority'],
 				'channel'        => $t['channel'],
 				'reference'      => $t['helpdesk_ref'],
@@ -281,14 +333,19 @@ final class Helpdesk_Hero_Admin_REST {
 		$messages = array();
 		foreach ( Helpdesk_Hero_Tickets::messages( (int) $t['id'] ) as $m ) {
 			$messages[] = array(
-				'id'     => (int) $m['id'],
-				'from'   => 'in' === $m['direction'] ? 'support' : ( 'system' === $m['direction'] ? 'system' : 'you' ),
-				'author' => $m['author'],
-				'body'   => $m['body'],
-				'time'   => self::iso( $m['created_at'] ),
+				'id'          => (int) $m['id'],
+				'from'        => 'in' === $m['direction'] ? 'support' : ( 'system' === $m['direction'] ? 'system' : 'you' ),
+				'author'      => $m['author'],
+				'body'        => $m['body'],
+				'time'        => self::iso( $m['created_at'] ),
+				'attachments' => Helpdesk_Hero_Attachments::for_message( (int) $m['id'] ),
 			);
 		}
-		$grant    = $t['grant_id'] ? Helpdesk_Hero_Access::get( (int) $t['grant_id'] ) : null;
+		$grant = $t['grant_id'] ? Helpdesk_Hero_Access::get( (int) $t['grant_id'] ) : null;
+		// Access is per site: an open ticket shows the site's active access.
+		if ( 'closed' !== $t['status'] && ! Helpdesk_Hero_Access::is_active( $grant ) && Helpdesk_Hero_Access::active() ) {
+			$grant = Helpdesk_Hero_Access::active();
+		}
 		$activity = array();
 		if ( $grant ) {
 			foreach ( Helpdesk_Hero_Monitor::query( array( 'grant_id' => (int) $grant['id'], 'limit' => 50 ) ) as $row ) {
@@ -304,6 +361,7 @@ final class Helpdesk_Hero_Admin_REST {
 			'id'        => (int) $t['id'],
 			'subject'   => $t['subject'],
 			'status'    => $t['status'],
+			'status_label' => (string) ( $t['status_label'] ?? '' ),
 			'priority'  => $t['priority'],
 			'channel'   => $t['channel'],
 			'reference' => $t['helpdesk_ref'],
@@ -320,7 +378,11 @@ final class Helpdesk_Hero_Admin_REST {
 				'comment' => (string) $t['rating_comment'],
 			) : null,
 			'can_rate'  => self::needs_rating( $t ),
+			'fields'    => self::field_values( $t ),
+			'usage'     => self::ticket_usage( $t ),
+			'files'     => Helpdesk_Hero_Attachments::config(),
 			'messages'  => $messages,
+			'spots'     => Helpdesk_Hero_Pinpoint::of_ticket( (int) $t['id'] ),
 			'grant'     => self::grant_json( $grant ),
 			'activity'  => $activity,
 		);
@@ -431,6 +493,8 @@ final class Helpdesk_Hero_Admin_REST {
 					'role_options'     => $roles,
 					'duration_options' => $durations,
 					'default_label'    => $labels[ $policy['access']['default_role'] ] ?? $policy['access']['default_role'],
+					// Access already active for the site: the new ticket uses it.
+					'current'          => self::grant_json( Helpdesk_Hero_Access::active() ),
 				)
 			),
 			'tickets'     => $policy['tickets'],
@@ -440,7 +504,113 @@ final class Helpdesk_Hero_Admin_REST {
 				'email' => $user->user_email,
 			),
 			'ai'          => $policy['tickets']['ai_assistant'] && Helpdesk_Hero_AI::available(),
+			'fields'      => (array) ( Helpdesk_Hero_Settings::get( 'extras' )['fields'] ?? array() ),
+			'files'       => Helpdesk_Hero_Attachments::config(),
 		);
+	}
+
+	/**
+	 * Time and cost of a ticket, when the support team shares billing.
+	 *
+	 * @param array $t Ticket.
+	 * @return array|null { minutes, amount, currency, lines }
+	 */
+	private static function ticket_usage( array $t ) {
+		$usage = (array) ( Helpdesk_Hero_Settings::get( 'extras' )['usage'] ?? array() );
+		if ( ! $usage || ! (int) $t['remote_id'] ) {
+			return null;
+		}
+		$lines = array_values(
+			array_filter(
+				$usage['items'],
+				static function ( $i ) use ( $t ) {
+					return (int) $i['hub_ticket_id'] === (int) $t['remote_id'];
+				}
+			)
+		);
+		$minutes = (int) ( $usage['tickets'][ (int) $t['remote_id'] ] ?? 0 );
+		if ( ! $minutes && ! $lines ) {
+			return null;
+		}
+		return array(
+			'minutes'  => $minutes,
+			'amount'   => round( array_sum( array_column( $lines, 'amount' ) ), 2 ),
+			'currency' => $usage['currency'],
+			'lines'    => $lines,
+		);
+	}
+
+	/**
+	 * A ticket's answers to custom fields, with labels.
+	 *
+	 * @param array $t Ticket.
+	 * @return array[] { label, value }
+	 */
+	private static function field_values( array $t ) {
+		$values = ! empty( $t['fields'] ) ? (array) json_decode( (string) $t['fields'], true ) : array();
+		$labels = array_column( (array) ( Helpdesk_Hero_Settings::get( 'extras' )['fields'] ?? array() ), 'label', 'id' );
+		$out    = array();
+		foreach ( $values as $id => $v ) {
+			$out[] = array(
+				'label' => $labels[ $id ] ?? (string) $id,
+				'value' => is_bool( $v ) ? ( $v ? __( 'Yes', 'helpdesk-hero' ) : __( 'No', 'helpdesk-hero' ) ) : (string) $v,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * What your support team charged: time, costs, services and the tickets they're for.
+	 *
+	 * @return array|WP_Error
+	 */
+	public static function billing() {
+		$usage = (array) ( Helpdesk_Hero_Settings::get( 'extras' )['usage'] ?? array() );
+		if ( ! $usage ) {
+			return new WP_Error( 'helpdesk_hero_billing', __( 'Your support team doesn’t share billing here.', 'helpdesk-hero' ), array( 'status' => 404 ) );
+		}
+		// Link each line to this site's copy of the ticket.
+		foreach ( $usage['items'] as &$item ) {
+			$local          = Helpdesk_Hero_Tickets::by_remote( (int) $item['hub_ticket_id'] );
+			$item['ticket'] = $local ? (int) $local['id'] : 0;
+			if ( $local ) {
+				$item['subject'] = $local['subject'];
+			}
+		}
+		unset( $item );
+		return $usage;
+	}
+
+	/**
+	 * Upload a file to send with a ticket or reply.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array|WP_Error
+	 */
+	public static function upload( WP_REST_Request $request ) {
+		$files = $request->get_file_params();
+		if ( empty( $files['file'] ) || ! is_array( $files['file'] ) ) {
+			return new WP_Error( 'helpdesk_hero_files', __( 'Choose a file.', 'helpdesk-hero' ), array( 'status' => 400 ) );
+		}
+		return Helpdesk_Hero_Attachments::upload( $files['file'] );
+	}
+
+	/**
+	 * Open a file (fetched from the hub the first time).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_Error|void Streams the file.
+	 */
+	public static function attachment( WP_REST_Request $request ) {
+		$row = Helpdesk_Hero_Attachments::get( (int) $request['id'] );
+		if ( ! $row || ( ! (int) $row['ticket_id'] && (int) $row['uploaded_by'] !== get_current_user_id() ) ) {
+			return new WP_Error( 'helpdesk_hero_file_gone', __( 'File not found.', 'helpdesk-hero' ), array( 'status' => 404 ) );
+		}
+		$path = Helpdesk_Hero_Attachments::local_path( $row );
+		if ( is_wp_error( $path ) ) {
+			return $path;
+		}
+		Helpdesk_Hero_Attachments::send_file( $row, $path );
 	}
 
 	/**
@@ -460,6 +630,9 @@ final class Helpdesk_Hero_Admin_REST {
 				'page_url'      => esc_url_raw( (string) ( $p['page_url'] ?? '' ) ),
 				'contact_name'  => sanitize_text_field( (string) ( $p['contact_name'] ?? '' ) ),
 				'contact_email' => sanitize_email( (string) ( $p['contact_email'] ?? '' ) ),
+				'fields'        => (array) ( $p['fields'] ?? array() ),
+				'attachments'   => array_map( 'absint', (array) ( $p['attachments'] ?? array() ) ),
+				'pinpoint'      => preg_replace( '/[^a-z0-9,]/', '', strtolower( (string) ( $p['pinpoint'] ?? '' ) ) ),
 				'sections'      => array_map( 'sanitize_key', (array) ( $p['sections'] ?? array() ) ),
 				'grant'         => ! empty( $p['grant'] ),
 				'hours'         => absint( $p['hours'] ?? 0 ),
@@ -477,7 +650,7 @@ final class Helpdesk_Hero_Admin_REST {
 	 * @return array|WP_Error
 	 */
 	public static function reply( WP_REST_Request $request ) {
-		$result = Helpdesk_Hero_Connection::reply( (int) $request['id'], (string) $request->get_param( 'body' ) );
+		$result = Helpdesk_Hero_Connection::reply( (int) $request['id'], (string) $request->get_param( 'body' ), array_map( 'absint', (array) $request->get_param( 'attachments' ) ), preg_replace( '/[^a-z0-9,]/', '', strtolower( (string) $request->get_param( 'pinpoints' ) ) ) );
 		return is_wp_error( $result ) ? self::bad( $result ) : self::ticket( $request );
 	}
 
@@ -551,12 +724,15 @@ final class Helpdesk_Hero_Admin_REST {
 		}
 		if ( $ticket ) {
 			Helpdesk_Hero_Tickets::update( (int) $ticket['id'], array( 'grant_id' => (int) $created['grant']['id'] ) );
-			// The hub learns about it, and agents log in from there; no link to pass on.
+		}
+		if ( empty( $created['existing'] ) ) {
+			// Every open ticket on the hub learns about it, and agents log in from there.
 			do_action( 'helpdesk_hero_access_changed', (int) $created['grant']['id'], 'granted' );
 		}
 		return array(
-			'grant' => self::grant_json( $created['grant'] ),
-			'url'   => $ticket && 'hub' === $ticket['channel'] ? '' : $created['url'],
+			'grant'    => self::grant_json( $created['grant'] ),
+			'url'      => $ticket && 'hub' === $ticket['channel'] ? '' : $created['url'],
+			'existing' => ! empty( $created['existing'] ),
 		);
 	}
 
@@ -726,7 +902,48 @@ final class Helpdesk_Hero_Admin_REST {
 	}
 
 	/**
-	 * The current support session, for the support account's read-only page.
+	 * Open tickets for the support session page, with their problem spots.
+	 *
+	 * @return array[]
+	 */
+	public static function session_tickets() {
+		$out = array();
+		foreach ( Helpdesk_Hero_Tickets::all( 'active', 10 ) as $t ) {
+			$first = Helpdesk_Hero_Tickets::messages( (int) $t['id'] );
+			$out[] = array(
+				'id'          => (int) $t['id'],
+				'subject'     => $t['subject'],
+				'priority'    => $t['priority'],
+				'created'     => self::iso( $t['created_at'] ),
+				'description' => $first ? (string) $first[0]['body'] : '',
+				'spots'       => array_map(
+					static function ( $s ) {
+						return array_merge( $s, array( 'highlight' => add_query_arg( 'hdh_pin', $s['id'], $s['url'] ) ) );
+					},
+					Helpdesk_Hero_Pinpoint::of_ticket( (int) $t['id'] )
+				),
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Support ends their own access: the grant is revoked and every support account deleted, as
+	 * when the site owner ends it. The site owner sees who ended it in the Activity log.
+	 *
+	 * @return array
+	 */
+	public static function end_session() {
+		$grant_id = Helpdesk_Hero_Access::current_grant_id();
+		Helpdesk_Hero_Access::revoke( $grant_id, 'support_ended', wp_get_current_user()->display_name );
+		return array(
+			'ended'    => true,
+			'redirect' => home_url( '/' ),
+		);
+	}
+
+	/**
+	 * The support session: who, until when, and what support may do.
 	 *
 	 * @return array
 	 */
@@ -740,10 +957,13 @@ final class Helpdesk_Hero_Admin_REST {
 			'team'            => Helpdesk_Hero_Settings::support_name(),
 			'user'            => wp_get_current_user()->display_name,
 			'expires'         => self::iso( $grant['expires_at'] ),
+			'permanent'       => Helpdesk_Hero_Access::is_permanent( $grant ),
 			'role'            => ucfirst( Helpdesk_Hero_Activity::role_label( (string) $grant['role'] ) ),
 			'plugin_installs' => (bool) $grant['allow_plugins'],
 			'page_views'      => ! empty( $access['log_page_views'] ),
-			'troubleshooting' => Helpdesk_Hero_Safe_Mode::can_use() ? admin_url( 'tools.php?page=' . Helpdesk_Hero_Safe_Mode::PAGE ) : '',
+			'troubleshooting' => Helpdesk_Hero_Safe_Mode::can_use(),
+			// Open tickets with what the customer pointed at (Pinpoint), to start from.
+			'tickets'         => self::session_tickets(),
 			'logout'          => wp_logout_url( home_url( '/' ) ),
 			'ticket'          => $ticket ? array(
 				'subject'     => $ticket['subject'],

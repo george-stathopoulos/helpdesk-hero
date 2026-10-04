@@ -15,7 +15,15 @@ import { Check } from '../ui/components/kit';
 import { Shell } from '../App';
 import { message } from '../components/common';
 
-function Body() {
+/**
+ * Troubleshooting mode: on its own page (site owners, Tools › Troubleshoot) or inside the
+ * Support session page (support accounts).
+ *
+ * @param {Object}  props          Props.
+ * @param {boolean} props.embedded Inside another page: a section heading instead of a page title.
+ * @return {JSX.Element} Panel.
+ */
+export function TroubleshootPanel( { embedded } ) {
 	const { data, error, reload } = useApi( 'admin/troubleshoot' );
 	const [ keep, setKeep ] = useState( null );
 	const [ theme, setTheme ] = useState( false );
@@ -50,19 +58,40 @@ function Body() {
 
 	return (
 		<>
-			<PageHead
-				title={ __( 'Troubleshooting mode', 'helpdesk-hero' ) }
-				lede={ __(
-					'Turn plugins off for your browser session only. Visitors and other users keep seeing the site exactly as it is. Switch off half, test, then narrow it down.',
-					'helpdesk-hero'
-				) }
-			>
-				{ data.active && (
-					<Pill tone="warning" dot>
-						{ __( 'On for your session', 'helpdesk-hero' ) }
-					</Pill>
-				) }
-			</PageHead>
+			{ embedded ? (
+				<div className="hdh-row" style={ { justifyContent: 'space-between', marginTop: 8 } }>
+					<div>
+						<div className="hdh-section-title" style={ { margin: 0 } }>
+							{ __( 'Troubleshooting mode', 'helpdesk-hero' ) }
+						</div>
+						<p className="hdh-muted" style={ { margin: '4px 0 10px' } }>
+							{ __(
+								'Turn plugins off (or use a default theme) for your browser session only. Visitors and other users keep seeing the site exactly as it is. Switch off half, test, then narrow it down.',
+								'helpdesk-hero'
+							) }
+						</p>
+					</div>
+					{ data.active && (
+						<Pill tone="warning" dot>
+							{ __( 'On for your session', 'helpdesk-hero' ) }
+						</Pill>
+					) }
+				</div>
+			) : (
+				<PageHead
+					title={ __( 'Troubleshooting mode', 'helpdesk-hero' ) }
+					lede={ __(
+						'Turn plugins off for your browser session only. Visitors and other users keep seeing the site exactly as it is. Switch off half, test, then narrow it down.',
+						'helpdesk-hero'
+					) }
+				>
+					{ data.active && (
+						<Pill tone="warning" dot>
+							{ __( 'On for your session', 'helpdesk-hero' ) }
+						</Pill>
+					) }
+				</PageHead>
+			) }
 			<Card
 				title={ __( 'Plugins to keep on', 'helpdesk-hero' ) }
 				sub={
@@ -160,7 +189,7 @@ export default function Troubleshoot() {
 	return (
 		<Shell>
 			<main className="hdh-shell">
-				<Body />
+				<TroubleshootPanel />
 			</main>
 		</Shell>
 	);

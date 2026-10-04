@@ -30,7 +30,12 @@ final class Helpdesk_Hero_Settings {
 			'connected_at' => '',
 			'policy'       => array(),
 			'branding'     => array(),
+			'extras'       => array(),
 			'notify_email' => '',
+			// Pinpoint ("Report a problem"): off until the site owner turns it on.
+			'pinpoint'     => array(
+				'enabled' => null, // Not chosen yet: the support team's policy decides.
+			),
 		);
 	}
 
@@ -65,14 +70,19 @@ final class Helpdesk_Hero_Settings {
 	}
 
 	/**
-	 * A secret.
+	 * A secret (kept encrypted in the database).
 	 *
 	 * @param string $key Key.
 	 * @return string
 	 */
 	public static function secret( $key ) {
 		$stored = get_option( self::SECRETS, array() );
-		return is_array( $stored ) && isset( $stored[ $key ] ) ? (string) $stored[ $key ] : '';
+		if ( ! is_array( $stored ) || ! isset( $stored[ $key ] ) ) {
+			return '';
+		}
+		// Stored encrypted (older versions stored plain text, which still reads).
+		$plain = Helpdesk_Hero_Crypto::decrypt( (string) $stored[ $key ] );
+		return false === $plain ? '' : $plain;
 	}
 
 	/**
@@ -87,7 +97,7 @@ final class Helpdesk_Hero_Settings {
 		if ( '' === (string) $value ) {
 			unset( $stored[ $key ] );
 		} else {
-			$stored[ $key ] = (string) $value;
+			$stored[ $key ] = Helpdesk_Hero_Crypto::encrypt( (string) $value );
 		}
 		update_option( self::SECRETS, $stored, false );
 	}
@@ -98,7 +108,7 @@ final class Helpdesk_Hero_Settings {
 	 * @return bool
 	 */
 	public static function is_connected() {
-		return (int) self::get( 'hub_site_id' ) > 0 && '' !== self::secret( 'hub_secret' );
+		return (int) self::get( 'hub_site_id' ) > 0 && ( '' !== self::secret( 'hub_keys' ) || '' !== self::secret( 'hub_secret' ) );
 	}
 
 	/**

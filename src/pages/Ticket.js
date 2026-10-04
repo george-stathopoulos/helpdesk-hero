@@ -17,11 +17,15 @@ import {
 	Stars,
 	CopyBox,
 	confirmAction,
+	KeyValues,
 } from '../ui/components/kit';
 import Icon from '../ui/components/Icon';
 import GrantPanel from '../components/GrantPanel';
 import AccessFields from '../components/AccessFields';
 import useStateApi from '../components/useStateApi';
+import { FileAttach } from '../components/Extras';
+import { PickedSpots, SentSpots, AddSpot, useSpotsFromHash } from '../components/Spots';
+import { money, duration, STATE } from './Billing';
 import {
 	STATUS_LABELS,
 	PRIORITY_LABELS,
@@ -38,6 +42,9 @@ export default function Ticket( { param } ) {
 	const [ give, setGive ] = useState( null );
 	const [ override, setOverride ] = useState( null );
 	const [ body, setBody ] = useState( '' );
+	const [ files, setFiles ] = useState( [] );
+	// Spots picked with "Report a problem" › Send with this ticket (#/ticket/ID?pins=…).
+	const [ pins, setPins ] = useSpotsFromHash( 'pins' );
 	const [ busy, setBusy ] = useState( '' );
 	const toast = useToast();
 	const ticket = override && override.id === id ? override : data;
@@ -78,7 +85,11 @@ export default function Ticket( { param } ) {
 					<p className="hdh-pagehead__lede hdh-row">
 						<TicketStatus
 							status={ ticket.status }
-							labels={ STATUS_LABELS }
+							labels={
+								ticket.status_label
+									? { ...STATUS_LABELS, [ ticket.status ]: ticket.status_label }
+									: STATUS_LABELS
+								}
 						/>
 						<span>#{ ticket.id }</span>
 						<span>·</span>
@@ -106,14 +117,41 @@ export default function Ticket( { param } ) {
 								ticket.status === 'closed' ? 'refresh' : 'check'
 							}
 							disabled={ busy === 'status' }
-							onClick={ () =>
-								act( 'status', 'status', {
-									status:
-										ticket.status === 'closed'
-											? 'open'
-											: 'closed',
-								} )
-							}
+							onClick={ async () => {
+								const closing = ticket.status !== 'closed';
+								const endsAccess =
+									closing &&
+									policy.access.end_on_close &&
+									ticket.grant &&
+									ticket.grant.active;
+								let text;
+								if ( ! closing ) {
+									text = __(
+										'Reopen this ticket? Your support team will see it again.',
+										'helpdesk-hero'
+									);
+								} else if ( endsAccess ) {
+									text = __(
+										'Mark this ticket as solved? Your support team’s access to your site will end now.',
+										'helpdesk-hero'
+									);
+								} else {
+									text = __(
+										'Mark this ticket as solved? Your support team will be told. You can reopen it later.',
+										'helpdesk-hero'
+									);
+								}
+								const yes = await confirmAction( text, {
+									confirmText: closing
+										? __( 'Mark as solved', 'helpdesk-hero' )
+										: __( 'Reopen', 'helpdesk-hero' ),
+								} );
+								if ( yes ) {
+									act( 'status', 'status', {
+										status: closing ? 'closed' : 'open',
+									} );
+								}
+							} }
 						>
 							{ ticket.status === 'closed'
 								? __( 'Reopen', 'helpdesk-hero' )
@@ -141,11 +179,23 @@ export default function Ticket( { param } ) {
 						<Card title={ __( 'Reply', 'helpdesk-hero' ) }>
 							<div className="hdh-stack">
 								<TextArea
+									formatting
 									label={ __( 'Message', 'helpdesk-hero' ) }
 									value={ body }
 									onChange={ setBody }
 									rows={ 5 }
 								/>
+								<FileAttach
+									config={ ticket.files }
+									files={ files }
+									onChange={ setFiles }
+								/>
+								<PickedSpots
+									pins={ pins }
+									onRemove={ ( pid ) => setPins( pins.filter( ( p ) => p.id !== pid ) ) }
+									sub={ __( 'Sent with this reply.', 'helpdesk-hero' ) }
+								/>
+								<AddSpot ticketId={ id } state={ boot.pinpoint } />
 								<div className="hdh-row">
 									<Button
 										variant="primary"
@@ -157,9 +207,19 @@ export default function Ticket( { param } ) {
 											act(
 												'reply',
 												'reply',
-												{ body },
+												{
+													body,
+													attachments: files.map(
+														( f ) => f.id
+													),
+													pinpoints: pins
+														.map( ( p ) => p.id )
+														.join( ',' ),
+												},
 												() => {
 													setBody( '' );
+													setFiles( [] );
+													setPins( [] );
 													toast(
 														__(
 															'Reply sent',
@@ -201,9 +261,43 @@ export default function Ticket( { param } ) {
 						</div>
 					) }
 				</div>
-				<aside className="hdh-split__side">
+				<aside className="hdh-split__side hdh-panels">
+					<SentSpots spots={ ticket.spots } />
 					{ ( ticket.can_rate || ticket.rating ) && (
 						<RateCard ticket={ ticket } onChange={ setOverride } />
+					) }
+					{ ticket.usage && (
+						<Card
+							title={ __( 'Time and cost', 'helpdesk-hero' ) }
+							sub={ sprintf(
+								/* translators: 1: time, 2: cost */
+								__( '%1$s · %2$s', 'helpdesk-hero' ),
+								duration( ticket.usage.minutes ),
+								money( ticket.usage.amount, ticket.usage.currency )
+							) }
+						>
+							<KeyValues
+								rows={ ticket.usage.lines.map( ( l ) => [
+									l.service ||
+										__( 'Work', 'helpdesk-hero' ),
+									`${
+										l.minutes ? duration( l.minutes ) + ' · ' : ''
+									}${ money( l.amount, ticket.usage.currency ) } · ${
+										STATE[ l.state ].label
+									}${ l.invoice_ref ? ' ' + l.invoice_ref : '' }`,
+								] ) }
+							/>
+						</Card>
+					) }
+					{ ( ticket.fields || [] ).length > 0 && (
+						<Card title={ __( 'Details', 'helpdesk-hero' ) }>
+							<KeyValues
+								rows={ ticket.fields.map( ( f ) => [
+									f.label,
+									f.value,
+								] ) }
+							/>
+						</Card>
 					) }
 					<Card title={ __( 'Support access', 'helpdesk-hero' ) }>
 						{ ticket.grant ? (

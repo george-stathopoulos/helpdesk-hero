@@ -8,7 +8,8 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * HMAC-SHA256 over method, route, time, a one-time nonce and the body hash. Each connected site
+ * Ed25519 (or, for connections from before 2.1, HMAC-SHA256) over method, route, time, a one-time
+ * nonce and the body hash. Each connected site
  * has its own shared secret, created when it pairs with the hub. Requests older than five minutes
  * or with a nonce seen before are rejected.
  */
@@ -38,11 +39,18 @@ final class Helpdesk_Hero_Signer {
 	 * @param string     $method    GET or POST.
 	 * @param array|null $data      JSON body (POST) or query args (GET).
 	 * @param string     $id        Sender ID (site ID on the hub).
-	 * @param string     $secret    Shared secret.
+	 * @param array|string $creds   Credentials (see the Crypto class), or an older shared key.
 	 * @param int        $timeout   Seconds.
 	 * @return array|WP_Error Decoded JSON.
 	 */
-	public static function request( $rest_root, $route, $method, $data, $id, $secret, $timeout = 20 ) {
+	public static function request( $rest_root, $route, $method, $data, $id, $creds, $timeout = 20 ) {
+		if ( ! self::secure_url( $rest_root ) ) {
+			return self::insecure_error( $rest_root );
+		}
+		$signer = Helpdesk_Hero_Crypto::signer( is_array( $creds ) ? $creds : array( 'hmac' => (string) $creds ) );
+		if ( ! $signer ) {
+			return new WP_Error( 'helpdesk_hero_keys', __( 'The connection keys are missing. Disconnect and connect again.', 'helpdesk-hero' ) );
+		}
 		$method = strtoupper( $method );
 		$body   = 'POST' === $method ? (string) wp_json_encode( $data ? $data : new stdClass() ) : '';
 		$url    = self::url( $rest_root, $route );
@@ -51,6 +59,8 @@ final class Helpdesk_Hero_Signer {
 		}
 		$time  = (string) time();
 		$nonce = bin2hex( random_bytes( 12 ) );
+		$base  = self::base( $time, $nonce, $method, $route, $body );
+		$sig   = 'ed25519' === $signer[0] ? Helpdesk_Hero_Crypto::sign( $base, $signer[1] ) : hash_hmac( 'sha256', $base, $signer[1] );
 
 		$response = wp_remote_request(
 			$url,
@@ -63,7 +73,8 @@ final class Helpdesk_Hero_Signer {
 					'X-HDH-Id'          => (string) $id,
 					'X-HDH-Time'        => $time,
 					'X-HDH-Nonce'       => $nonce,
-					'X-HDH-Signature'   => hash_hmac( 'sha256', self::base( $time, $nonce, $method, $route, $body ), $secret ),
+					'X-HDH-Signature'   => $sig,
+					'X-HDH-Alg'         => $signer[0],
 				),
 				'body'    => 'POST' === $method ? $body : null,
 			)
@@ -92,6 +103,48 @@ final class Helpdesk_Hero_Signer {
 	public static function valid_url( $url ) {
 		$scheme = wp_parse_url( (string) $url, PHP_URL_SCHEME );
 		return false !== filter_var( $url, FILTER_VALIDATE_URL ) && in_array( $scheme, array( 'http', 'https' ), true ) && '' !== (string) wp_parse_url( (string) $url, PHP_URL_HOST );
+	}
+
+	/**
+	 * Whether a URL is safe for connection keys, tickets and login links: HTTPS, or a local
+	 * development address (localhost, 127.0.0.1, ::1, *.localhost, *.test, *.local). Sites whose
+	 * environment type is "local" or "development" (WP_ENVIRONMENT_TYPE) may use plain HTTP too.
+	 *
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	public static function secure_url( $url ) {
+		$scheme = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_SCHEME ) );
+		$host   = strtolower( trim( (string) wp_parse_url( (string) $url, PHP_URL_HOST ), '[]' ) );
+		$secure = 'https' === $scheme
+			|| in_array( $host, array( 'localhost', '127.0.0.1', '::1' ), true )
+			|| (bool) preg_match( '/\.(localhost|test|local)$/', $host )
+			|| in_array( wp_get_environment_type(), array( 'local', 'development' ), true );
+		/**
+		 * Filters whether a URL counts as secure enough to connect to.
+		 *
+		 * @param bool   $secure Secure.
+		 * @param string $url    URL.
+		 */
+		return (bool) apply_filters( 'helpdesk_hero_secure_url', $secure, $url );
+	}
+
+	/**
+	 * Error for an address that isn't on HTTPS.
+	 *
+	 * @param string $url URL.
+	 * @return WP_Error
+	 */
+	public static function insecure_error( $url ) {
+		return new WP_Error(
+			'helpdesk_hero_insecure',
+			sprintf(
+				/* translators: %s: site address */
+				__( 'Helpdesk Hero only connects over HTTPS, so connection keys and login links can’t be read on the way. %s uses plain HTTP. Turn on HTTPS for that site (most hosts offer free certificates) and try again.', 'helpdesk-hero' ),
+				(string) wp_parse_url( (string) $url, PHP_URL_HOST )
+			),
+			array( 'status' => 400 )
+		);
 	}
 
 	/**
@@ -158,29 +211,35 @@ final class Helpdesk_Hero_Signer {
 	/**
 	 * Verify a signed REST request.
 	 *
-	 * @param WP_REST_Request $request       Request.
-	 * @param callable        $secret_for_id Returns the secret for a sender ID, or '' if unknown.
-	 * @return string|WP_Error Sender ID.
+	 * @param WP_REST_Request $request      Request.
+	 * @param callable        $creds_for_id Returns the credentials for a sender ID (array, or a
+	 *                                      shared HMAC key as a string), empty if unknown.
+	 * @param callable|null   $save         Called with ( $id, $creds ) when the credentials change
+	 *                                      (a key change was confirmed).
+	 * @return string|WP_Error Sender ID. The request gets a `_hh_key` param: current | old.
 	 */
-	public static function verify( WP_REST_Request $request, callable $secret_for_id ) {
+	public static function verify( WP_REST_Request $request, callable $creds_for_id, $save = null ) {
 		$id        = (string) $request->get_header( 'X-HDH-Id' );
 		$time      = (string) $request->get_header( 'X-HDH-Time' );
 		$nonce     = (string) $request->get_header( 'X-HDH-Nonce' );
 		$signature = (string) $request->get_header( 'X-HDH-Signature' );
+		$alg       = 'ed25519' === $request->get_header( 'X-HDH-Alg' ) ? 'ed25519' : 'hmac';
 		$denied    = new WP_Error( 'helpdesk_hero_signature', __( 'Request signature is not valid.', 'helpdesk-hero' ), array( 'status' => 401 ) );
 
-		if ( '' === $id || ! ctype_digit( $time ) || ! preg_match( '/^[a-f0-9]{16,64}$/', $nonce ) || ! preg_match( '/^[a-f0-9]{64}$/', $signature ) ) {
+		$format = 'ed25519' === $alg ? '/^[A-Za-z0-9+\/]{86}==$/' : '/^[a-f0-9]{64}$/';
+		if ( '' === $id || ! ctype_digit( $time ) || ! preg_match( '/^[a-f0-9]{16,64}$/', $nonce ) || ! preg_match( $format, $signature ) ) {
 			return $denied;
 		}
 		if ( abs( time() - (int) $time ) > self::MAX_SKEW ) {
 			return new WP_Error( 'helpdesk_hero_clock', __( 'Request is too old. Check that both servers have the correct time.', 'helpdesk-hero' ), array( 'status' => 401 ) );
 		}
-		$secret = (string) call_user_func( $secret_for_id, $id );
-		if ( '' === $secret ) {
+		$creds = call_user_func( $creds_for_id, $id );
+		$creds = is_array( $creds ) ? $creds : ( '' !== (string) $creds ? array( 'hmac' => (string) $creds ) : array() );
+		if ( ! $creds ) {
 			return $denied;
 		}
-		$expected = hash_hmac( 'sha256', self::base( $time, $nonce, $request->get_method(), $request->get_route(), $request->get_body() ), $secret );
-		if ( ! hash_equals( $expected, $signature ) ) {
+		$result = Helpdesk_Hero_Crypto::check( $creds, $alg, $signature, self::base( $time, $nonce, $request->get_method(), $request->get_route(), $request->get_body() ) );
+		if ( ! $result ) {
 			return $denied;
 		}
 		$seen = 'helpdesk_hero_nonce_' . md5( $id . $nonce );
@@ -188,6 +247,10 @@ final class Helpdesk_Hero_Signer {
 			return new WP_Error( 'helpdesk_hero_replay', __( 'Request was already processed.', 'helpdesk-hero' ), array( 'status' => 409 ) );
 		}
 		set_transient( $seen, 1, 2 * self::MAX_SKEW );
+		if ( $result['changed'] && $save ) {
+			call_user_func( $save, $id, $result['creds'] );
+		}
+		$request->set_param( '_hh_key', $result['matched'] );
 		return $id;
 	}
 }

@@ -3,10 +3,12 @@ import { useState } from '@wordpress/element';
 import { send } from '../ui/lib/hooks';
 import { Card, Button } from '../ui/components/ui';
 import Icon from '../ui/components/Icon';
-import { message } from '../components/common';
+import { message, boot } from '../components/common';
 
 export default function Connect() {
-	const [ code, setCode ] = useState( '' );
+	// A connection link from the support team fills in the code.
+	const fromLink = boot.connectCode || '';
+	const [ code, setCode ] = useState( fromLink );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
 
@@ -14,7 +16,12 @@ export default function Connect() {
 		setBusy( true );
 		setError( '' );
 		send( 'admin/connect', 'POST', { code } )
-			.then( () => window.location.reload() )
+			.then( () => {
+				// Reload without the code from the link, which is used up now.
+				const url = new URL( window.location.href );
+				url.searchParams.delete( 'hdh_code' );
+				window.location.replace( url.toString() );
+			} )
 			.catch( ( e ) => {
 				setError( message( e ) );
 				setBusy( false );
@@ -28,10 +35,15 @@ export default function Connect() {
 			</div>
 			<h1>{ __( 'Connect to your support team', 'helpdesk-hero' ) }</h1>
 			<p>
-				{ __(
-					'Paste the connection code your support team gave you. Once connected you can open tickets from here, with your site’s details attached, and give support safe, temporary access when they need it.',
-					'helpdesk-hero'
-				) }
+				{ fromLink
+					? __(
+							'Your support team’s link filled in the connection code. Click Connect to finish. Once connected you can open tickets from here, with your site’s details attached, and give support safe, temporary access when they need it.',
+							'helpdesk-hero'
+					  )
+					: __(
+							'Paste the connection code your support team gave you. Once connected you can open tickets from here, with your site’s details attached, and give support safe, temporary access when they need it.',
+							'helpdesk-hero'
+					  ) }
 			</p>
 			<Card>
 				<div className="hdh-stack">

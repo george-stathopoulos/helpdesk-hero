@@ -16,6 +16,11 @@ defined( 'ABSPATH' ) || exit;
 final class Helpdesk_Hero_Policy {
 
 	/**
+	 * "Hours" that mean access with no end date ("Until I end it").
+	 */
+	const PERMANENT = 999999;
+
+	/**
 	 * Safe defaults (used for anything the hub did not send).
 	 *
 	 * @return array
@@ -36,6 +41,10 @@ final class Helpdesk_Hero_Policy {
 				'log_page_views'    => true,
 				'troubleshooting'   => true,
 				'end_on_close'      => true,
+				'permanent'         => false,
+			),
+			'pinpoint'    => array(
+				'mode' => 'customer',
 			),
 			'tickets'     => array(
 				'customer_replies' => true,
@@ -93,8 +102,10 @@ final class Helpdesk_Hero_Policy {
 		if ( ! $roles ) {
 			$roles = array( 'restricted_admin' );
 		}
-		$max     = max( 1, min( 24 * 30, (int) $a['max_hours'] ) );
-		$default = max( 1, min( $max, (int) $a['default_hours'] ) );
+		$max       = max( 1, min( 24 * 30, (int) $a['max_hours'] ) );
+		$permanent = ! empty( $a['permanent'] );
+		$default   = $permanent && self::PERMANENT === (int) $a['default_hours'] ? self::PERMANENT : max( 1, min( $max, (int) $a['default_hours'] ) );
+		$p         = array_merge( $d['pinpoint'], (array) ( $in['pinpoint'] ?? array() ) );
 
 		$sections = array();
 		foreach ( $d['diagnostics'] as $key => $fallback ) {
@@ -116,6 +127,11 @@ final class Helpdesk_Hero_Policy {
 				'log_page_views'    => (bool) $a['log_page_views'],
 				'troubleshooting'   => (bool) $a['troubleshooting'],
 				'end_on_close'      => (bool) $a['end_on_close'],
+				'permanent'         => $permanent,
+				'rules'             => self::clean_access_rules( $a['rules'] ?? array() ),
+			),
+			'pinpoint'    => array(
+				'mode' => in_array( $p['mode'], array( 'customer', 'on', 'always', 'off' ), true ) ? $p['mode'] : 'customer',
 			),
 			'tickets'     => array(
 				'customer_replies' => (bool) $t['customer_replies'],
@@ -132,12 +148,35 @@ final class Helpdesk_Hero_Policy {
 	}
 
 	/**
+	 * What the New ticket screen does about support access for a category and priority:
+	 * off (not offered), required (comes with the ticket), ticked or unticked (the customer
+	 * chooses). A rule for the category wins over one for the priority.
+	 *
+	 * @param string $category Category.
+	 * @param string $priority Priority.
+	 * @return string off | required | ticked | unticked
+	 */
+	public static function access_choice( $category, $priority ) {
+		$a = self::section( 'access' );
+		if ( 'off' === $a['mode'] ) {
+			return 'off';
+		}
+		$rules = (array) ( $a['rules'] ?? array() );
+		$rule  = $rules['categories'][ (string) $category ] ?? ( $rules['priorities'][ (string) $priority ] ?? '' );
+		if ( 'always' === $a['mode'] ) {
+			return 'off' === $rule ? 'off' : 'required';
+		}
+		return '' !== $rule ? $rule : 'ticked';
+	}
+
+	/**
 	 * Durations the customer can pick from, limited by the policy.
 	 *
 	 * @return array Hours => label.
 	 */
 	public static function durations() {
-		$max = (int) self::section( 'access' )['max_hours'];
+		$a   = self::section( 'access' );
+		$max = (int) $a['max_hours'];
 		$all = array(
 			1   => __( '1 hour', 'helpdesk-hero' ),
 			4   => __( '4 hours', 'helpdesk-hero' ),
@@ -159,6 +198,9 @@ final class Helpdesk_Hero_Policy {
 			$out[ $max ] = sprintf( _n( '%d hour', '%d hours', $max, 'helpdesk-hero' ), $max );
 		}
 		ksort( $out );
+		if ( $a['permanent'] ) {
+			$out[ self::PERMANENT ] = __( 'Until I end it', 'helpdesk-hero' );
+		}
 		return $out;
 	}
 
@@ -172,8 +214,12 @@ final class Helpdesk_Hero_Policy {
 		$a     = self::section( 'access' );
 		$hours = $a['customer_duration'] && ! empty( $asked['hours'] ) ? (int) $asked['hours'] : (int) $a['default_hours'];
 		$role  = $a['customer_role'] && ! empty( $asked['role'] ) && in_array( $asked['role'], $a['roles'], true ) ? $asked['role'] : $a['default_role'];
+		if ( self::PERMANENT === $hours ) {
+			// No end date: only when the support team's policy allows it.
+			$hours = $a['permanent'] ? self::PERMANENT : (int) $a['max_hours'];
+		}
 		return array(
-			'hours'         => max( 1, min( (int) $a['max_hours'], $hours ) ),
+			'hours'         => self::PERMANENT === $hours ? $hours : max( 1, min( (int) $a['max_hours'], $hours ) ),
 			'role'          => $role,
 			'allow_plugins' => (bool) $a['plugin_installs'],
 		);
@@ -192,6 +238,32 @@ final class Helpdesk_Hero_Policy {
 				$out[] = $key;
 			} elseif ( 'never' !== $rule && ( null === $ticked ? 'on' === $rule : in_array( $key, (array) $ticked, true ) ) ) {
 				$out[] = $key;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Access rules per category and priority, cleaned.
+	 *
+	 * @param mixed $in Raw { categories: { name: choice }, priorities: { priority: choice } }.
+	 * @return array
+	 */
+	public static function clean_access_rules( $in ) {
+		$in      = is_array( $in ) ? $in : array();
+		$choices = array( 'ticked', 'unticked', 'off', 'required' );
+		$out     = array(
+			'categories' => array(),
+			'priorities' => array(),
+		);
+		foreach ( (array) ( $in['categories'] ?? array() ) as $name => $choice ) {
+			if ( in_array( $choice, $choices, true ) ) {
+				$out['categories'][ substr( sanitize_text_field( (string) $name ), 0, 60 ) ] = $choice;
+			}
+		}
+		foreach ( (array) ( $in['priorities'] ?? array() ) as $name => $choice ) {
+			if ( in_array( $name, array( 'low', 'normal', 'high', 'urgent' ), true ) && in_array( $choice, $choices, true ) ) {
+				$out['priorities'][ $name ] = $choice;
 			}
 		}
 		return $out;

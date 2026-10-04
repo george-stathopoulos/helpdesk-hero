@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useState, useEffect } from '@wordpress/element';
 import { useApi, send } from '../ui/lib/hooks';
+import { when } from '../ui/lib/time';
 import {
 	Card,
 	PageHead,
@@ -19,12 +20,43 @@ import {
 } from '../ui/components/kit';
 import Icon from '../ui/components/Icon';
 import AccessFields from '../components/AccessFields';
+import { PickedSpots, useSpotsFromHash, hashParam } from '../components/Spots';
+import {
+	FileAttach,
+	CustomFields,
+	fieldsComplete,
+} from '../components/Extras';
 import { message, boot } from '../components/common';
 
-function pageUrlFromHash() {
-	const query = window.location.hash.split( '?' )[ 1 ] || '';
-	return new URLSearchParams( query ).get( 'page_url' ) || '';
+/**
+ * What to do about support access for a category and priority (same rules as the server):
+ * off, required, ticked or unticked.
+ *
+ * @param {Object} a        Access policy.
+ * @param {string} category Category.
+ * @param {string} priority Priority.
+ * @return {string} Choice.
+ */
+function accessChoice( a, category, priority ) {
+	if ( a.mode === 'off' ) {
+		return 'off';
+	}
+	const rules = a.rules || {};
+	const rule =
+		( rules.categories || {} )[ category ] ||
+		( rules.priorities || {} )[ priority ] ||
+		'';
+	if ( a.mode === 'always' ) {
+		return rule === 'off' ? 'off' : 'required';
+	}
+	return rule || 'ticked';
 }
+
+
+function pageUrlFromHash() {
+	return hashParam( 'page_url' );
+}
+
 
 export default function NewTicket( { go } ) {
 	const { data, error, reload } = useApi( 'admin/compose' );
@@ -33,6 +65,7 @@ export default function NewTicket( { go } ) {
 	const [ sending, setSending ] = useState( '' );
 	const [ ai, setAi ] = useState( null );
 	const [ aiBusy, setAiBusy ] = useState( false );
+	const [ pins, setPins ] = useSpotsFromHash( 'pin' );
 
 	useEffect( () => {
 		if ( data && ! form ) {
@@ -47,12 +80,44 @@ export default function NewTicket( { go } ) {
 				sections: data.sections
 					.filter( ( s ) => s.checked )
 					.map( ( s ) => s.key ),
-				grant: data.access.mode !== 'off',
+				grant: accessChoice( data.access, '', 'normal' ) === 'ticked',
 				hours: data.access.default_hours,
 				role: data.access.default_role,
+				fields: {},
+				files: [],
 			} );
 		}
 	}, [ data, form ] );
+
+	// Pinpoint: spots picked on a page come with the address; one of them from wp-admin
+	// usually needs support to log in and look.
+	const fromAdmin = pins.some( ( p ) => p.area === 'admin' );
+	useEffect( () => {
+		if ( fromAdmin && form && data ) {
+			setForm( ( f ) => ( {
+				...f,
+				grant: [ 'ticked', 'unticked' ].includes(
+					accessChoice( data.access, f.category, f.priority )
+				)
+					? true
+					: f.grant,
+			} ) );
+		}
+	}, [ fromAdmin, !! form ] ); // eslint-disable-line react-hooks/exhaustive-deps
+	useEffect( () => {
+		if ( pins.length && form && ! form.page_url ) {
+			setForm( ( f ) => ( { ...f, page_url: pins[ 0 ].url } ) );
+		}
+	}, [ pins.length, !! form ] ); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// A category or priority with its own access rule sets the box the way the team chose.
+	const choice =
+		data && form ? accessChoice( data.access, form.category, form.priority ) : 'off';
+	useEffect( () => {
+		if ( form && ( choice === 'ticked' || choice === 'unticked' ) ) {
+			setForm( ( f ) => ( { ...f, grant: choice === 'ticked' } ) );
+		}
+	}, [ choice ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
 	if ( error && ! data ) {
 		return <ErrorNotice error={ error } onRetry={ reload } />;
@@ -65,11 +130,20 @@ export default function NewTicket( { go } ) {
 	const t = data.tickets;
 	const a = data.access;
 	const intro = ( boot.branding && boot.branding.intro ) || t.intro;
-	const ready = form.subject.trim() && form.description.trim();
+	const ready =
+		form.subject.trim() &&
+		form.description.trim() &&
+		fieldsComplete( data.fields, form.fields );
 
 	const submit = ( isManual ) => {
 		setSending( isManual ? 'manual' : 'send' );
-		send( 'admin/tickets', 'POST', { ...form, manual: isManual } )
+		const { files, ...rest } = form;
+		send( 'admin/tickets', 'POST', {
+			...rest,
+			attachments: isManual ? [] : files.map( ( f ) => f.id ),
+			manual: isManual,
+			pinpoint: pins.map( ( p ) => p.id ).join( ',' ),
+		} )
 			.then( ( r ) => {
 				if ( isManual ) {
 					go( `ticket/${ r.ticket_id }` );
@@ -133,6 +207,26 @@ export default function NewTicket( { go } ) {
 
 			<div className="hdh-split">
 				<div className="hdh-split__main">
+					{ ! pins.length && boot.pinpoint && ! boot.pinpoint.enabled && boot.pinpoint.mode !== 'off' && (
+						<div className="hdh-policy-note">
+							<Icon name="pin" size={ 15 } />
+							<span>
+								{ __(
+									'Easier: with Pinpoint you click the problem on the page itself, and your support team sees exactly where it is.',
+									'helpdesk-hero'
+								) }{ ' ' }
+								<a href="#/pinpoint">{ __( 'Turn on Pinpoint', 'helpdesk-hero' ) }</a>
+							</span>
+						</div>
+					) }
+					<PickedSpots
+						pins={ pins }
+						onRemove={ ( id ) => setPins( pins.filter( ( p ) => p.id !== id ) ) }
+						sub={ __(
+							'Sent with the ticket, so your support team sees exactly where the problem is.',
+							'helpdesk-hero'
+						) }
+					/>
 					<Card title={ __( 'What’s happening?', 'helpdesk-hero' ) }>
 						<div className="hdh-stack">
 							<TextField
@@ -146,6 +240,7 @@ export default function NewTicket( { go } ) {
 								maxLength={ 200 }
 							/>
 							<TextArea
+								formatting
 								label={ __( 'Description', 'helpdesk-hero' ) }
 								value={ form.description }
 								onChange={ set( 'description' ) }
@@ -154,6 +249,16 @@ export default function NewTicket( { go } ) {
 									'What did you do, what did you expect, and what happened instead? When did it start?',
 									'helpdesk-hero'
 								) }
+							/>
+							<FileAttach
+								config={ data.files }
+								files={ form.files }
+								onChange={ set( 'files' ) }
+							/>
+							<CustomFields
+								fields={ data.fields }
+								answers={ form.fields }
+								onChange={ set( 'fields' ) }
 							/>
 							{ data.ai && (
 								<div
@@ -318,10 +423,25 @@ export default function NewTicket( { go } ) {
 						</div>
 					</Card>
 
-					{ a.mode !== 'off' && (
+					{ choice !== 'off' && a.current && (
+						<Card title={ __( 'Support access', 'helpdesk-hero' ) }>
+							<p className="hdh-muted" style={ { margin: 0 } }>
+								{ sprintf(
+									/* translators: 1: support team name, 2: date */
+									__(
+										'%1$s already has access to your site until %2$s. This ticket uses it too; change or end it under Support access.',
+										'helpdesk-hero'
+									),
+									boot.supportName,
+									when( a.current.expires_at )
+								) }
+							</p>
+						</Card>
+					) }
+					{ choice !== 'off' && ! a.current && (
 						<Card
 							title={
-								a.mode === 'always'
+								choice === 'required'
 									? sprintf(
 											/* translators: %s: support team name */
 											__(
@@ -333,16 +453,16 @@ export default function NewTicket( { go } ) {
 									: __( 'Support access', 'helpdesk-hero' )
 							}
 							sub={
-								a.mode === 'always'
+								choice === 'required'
 									? __(
-											'Your support team needs access to investigate, so it comes with every ticket.',
+											'Your support team needs access to investigate this kind of problem, so it comes with the ticket.',
 											'helpdesk-hero'
 									  )
 									: null
 							}
 						>
 							<div className="hdh-stack">
-								{ a.mode === 'ask' && (
+								{ choice !== 'required' && (
 									<Check
 										checked={ form.grant }
 										onChange={ set( 'grant' ) }
@@ -360,7 +480,7 @@ export default function NewTicket( { go } ) {
 										) }
 									/>
 								) }
-								{ ( a.mode === 'always' || form.grant ) && (
+								{ ( choice === 'required' || form.grant ) && (
 									<AccessFields
 										access={ a }
 										value={ {

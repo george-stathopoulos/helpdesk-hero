@@ -8,9 +8,10 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Every route requires a request signed with this site's hub secret. The hub can only:
+ * Every route requires a request signed with the hub's key. The hub can only:
  * ask for a fresh single-use login link while access is active, read the support activity
- * log for a ticket, push updates, and check that the site is reachable.
+ * log for a ticket, push updates, fetch files this site attached to its tickets, replace the
+ * connection keys, and check that the site is reachable.
  */
 final class Helpdesk_Hero_Client_REST {
 
@@ -50,6 +51,24 @@ final class Helpdesk_Hero_Client_REST {
 		);
 		register_rest_route(
 			self::NS,
+			'/client/attachments/(?P<id>\d+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'attachment' ),
+				'permission_callback' => $auth,
+			)
+		);
+		register_rest_route(
+			self::NS,
+			'/client/keys',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'keys' ),
+				'permission_callback' => $auth,
+			)
+		);
+		register_rest_route(
+			self::NS,
 			'/client/ping',
 			array(
 				'methods'             => 'GET',
@@ -72,10 +91,33 @@ final class Helpdesk_Hero_Client_REST {
 		$result = Helpdesk_Hero_Signer::verify(
 			$request,
 			static function ( $id ) {
-				return (string) $id === (string) Helpdesk_Hero_Settings::get( 'hub_site_id' ) ? Helpdesk_Hero_Settings::secret( 'hub_secret' ) : '';
+				return (string) $id === (string) Helpdesk_Hero_Settings::get( 'hub_site_id' ) ? Helpdesk_Hero_Connection::creds() : array();
+			},
+			static function ( $id, $creds ) {
+				Helpdesk_Hero_Connection::save_creds( $creds );
 			}
 		);
 		return is_wp_error( $result ) ? $result : true;
+	}
+
+	/**
+	 * A file this site sent with a ticket or reply, for the hub.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array|WP_Error
+	 */
+	public static function attachment( WP_REST_Request $request ) {
+		return Helpdesk_Hero_Attachments::export( (int) $request['id'] );
+	}
+
+	/**
+	 * The hub replaces the connection keys.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array|WP_Error
+	 */
+	public static function keys( WP_REST_Request $request ) {
+		return Helpdesk_Hero_Connection::rotate_keys( (string) $request->get_param( 'public_key' ), (string) $request->get_param( '_hh_key' ) );
 	}
 
 	/**
@@ -102,7 +144,7 @@ final class Helpdesk_Hero_Client_REST {
 		}
 		$grant = Helpdesk_Hero_Access::for_ticket( (int) $ticket['id'] );
 		if ( ! $grant ) {
-			return new WP_Error( 'helpdesk_hero_no_access', __( 'The customer has not granted access for this ticket, or access has ended. Ask them to grant access from their dashboard.', 'helpdesk-hero' ), array( 'status' => 403 ) );
+			return new WP_Error( 'helpdesk_hero_no_access', __( 'The customer has not granted access to this site, or access has ended. Ask them to grant access from their dashboard.', 'helpdesk-hero' ), array( 'status' => 403 ) );
 		}
 		// A named supporter (hubs with Helpdesk Hero Pro) gets a personal account under the same access.
 		$supporter = (array) $request->get_param( 'supporter' );
@@ -112,6 +154,16 @@ final class Helpdesk_Hero_Client_REST {
 			if ( is_wp_error( $user_id ) ) {
 				return $user_id;
 			}
+		}
+		// At most 30 links an hour per access, even for a correctly signed hub.
+		$count_key = 'helpdesk_hero_links_' . (int) $grant['id'];
+		$issued    = (int) get_transient( $count_key );
+		if ( $issued >= 30 ) {
+			return new WP_Error( 'helpdesk_hero_rate', __( 'Too many login links for this site in the last hour. Try again later.', 'helpdesk-hero' ), array( 'status' => 429 ) );
+		}
+		set_transient( $count_key, $issued + 1, HOUR_IN_SECONDS );
+		if ( ! Helpdesk_Hero_Signer::secure_url( wp_login_url() ) ) {
+			return Helpdesk_Hero_Signer::insecure_error( wp_login_url() );
 		}
 		$url = Helpdesk_Hero_Access::new_link( (int) $grant['id'], (int) $user_id );
 		if ( is_wp_error( $url ) ) {
@@ -137,14 +189,17 @@ final class Helpdesk_Hero_Client_REST {
 		if ( is_wp_error( $ticket ) ) {
 			return $ticket;
 		}
+		// The access started on this ticket, plus the site access the ticket used.
 		$grant_ids = $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM %i WHERE ticket_id = %d', Helpdesk_Hero_DB::table( 'grants' ), $ticket['id'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$grant_ids = array_unique( array_filter( array_map( 'intval', array_merge( $grant_ids, array( (int) $ticket['grant_id'] ) ) ) ) );
 		$entries   = array();
 		foreach ( $grant_ids as $grant_id ) {
 			foreach ( Helpdesk_Hero_Monitor::query( array( 'grant_id' => (int) $grant_id, 'limit' => 500 ) ) as $row ) {
 				$entries[] = array(
 					'time' => $row['created_at'],
-					'type' => $row['type'],
-					'text' => Helpdesk_Hero_Activity::describe( $row ),
+					'type'   => $row['type'],
+					'action' => $row['action'],
+					'text'   => Helpdesk_Hero_Activity::describe( $row ),
 					'by'   => (string) ( ( (array) $row['details'] )['by'] ?? '' ),
 				);
 			}

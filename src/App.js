@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useRoute, useTheme } from './ui/lib/hooks';
-import { ToastProvider } from './ui/components/ui';
+import { ToastProvider, ErrorBoundary } from './ui/components/ui';
 import Icon from './ui/components/Icon';
 import Connect from './pages/Connect';
 import Tickets from './pages/Tickets';
@@ -10,6 +10,8 @@ import Access from './pages/Access';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
 import SupportSession from './pages/SupportSession';
+import Billing from './pages/Billing';
+import Pinpoint from './pages/Pinpoint';
 
 const boot = window.hdhBoot || {};
 
@@ -26,6 +28,22 @@ const ROUTES = [
 		icon: 'plus',
 		Page: NewTicket,
 	},
+	// Hidden when the support team's policy turns Pinpoint off.
+	...( boot.pinpoint && boot.pinpoint.mode === 'off'
+		? []
+		: [
+				{
+					id: 'pinpoint',
+					label: __( 'Pinpoint', 'helpdesk-hero' ),
+					icon: 'pin',
+					Page: Pinpoint,
+					// Until it's turned on, a badge points people at it.
+					badge:
+						boot.pinpoint && ! boot.pinpoint.enabled
+							? __( 'New', 'helpdesk-hero' )
+							: '',
+				},
+		  ] ),
 	{
 		id: 'access',
 		label: __( 'Support access', 'helpdesk-hero' ),
@@ -38,6 +56,16 @@ const ROUTES = [
 		icon: 'activity',
 		Page: Activity,
 	},
+	...( boot.billing
+		? [
+				{
+					id: 'billing',
+					label: __( 'Billing', 'helpdesk-hero' ),
+					icon: 'coins',
+					Page: Billing,
+				},
+		  ]
+		: [] ),
 	{
 		id: 'settings',
 		label: __( 'Settings', 'helpdesk-hero' ),
@@ -141,6 +169,11 @@ export function Shell( { nav, current, children } ) {
 									>
 										<Icon name={ r.icon } size={ 15 } />
 										{ r.label }
+										{ r.badge && (
+											<span className="hdh-nav__badge">
+												{ r.badge }
+											</span>
+										) }
 									</a>
 								) ) }
 							</nav>
@@ -234,7 +267,9 @@ export default function App() {
 	return (
 		<Shell nav={ ROUTES } current={ current.id }>
 			<main className="hdh-shell" key={ route }>
-				<Page go={ go } param={ param } />
+				<ErrorBoundary resetKey={ route }>
+					<Page go={ go } param={ param } />
+				</ErrorBoundary>
 			</main>
 		</Shell>
 	);

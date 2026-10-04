@@ -1,7 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useState } from '@wordpress/element';
 import { addQueryArgs } from '@wordpress/url';
-import { useApi } from '../ui/lib/hooks';
+import { useApi, useStored } from '../ui/lib/hooks';
 import { ago, when } from '../ui/lib/time';
 import {
 	Card,
@@ -12,12 +12,54 @@ import {
 	Loading,
 	Button,
 } from '../ui/components/ui';
-import { TicketStatus, AccessState, TagPills } from '../ui/components/kit';
+import {
+	TicketStatus,
+	AccessState,
+	TagPills,
+	SortControl,
+	Pager,
+} from '../ui/components/kit';
 import Icon from '../ui/components/Icon';
 import { STATUS_LABELS, PRIORITY_LABELS, boot } from '../components/common';
 
+const SORTS = [
+	{ value: 'updated', label: __( 'Last updated', 'helpdesk-hero' ) },
+	{ value: 'created', label: __( 'Date opened', 'helpdesk-hero' ) },
+	{ value: 'status', label: __( 'Status', 'helpdesk-hero' ) },
+	{ value: 'priority', label: __( 'Priority', 'helpdesk-hero' ) },
+];
+const PRIORITY_RANK = { low: 0, normal: 1, high: 2, urgent: 3 };
+const STATUS_RANK = { unsent: 0, open: 1, pending: 2, closed: 3 };
+
+function sortTickets( tickets, by, order ) {
+	const dir = order === 'asc' ? 1 : -1;
+	const key = {
+		updated: ( t ) => t.updated_at || '',
+		created: ( t ) => t.created_at || '',
+		status: ( t ) => STATUS_RANK[ t.status ] ?? 9,
+		priority: ( t ) => PRIORITY_RANK[ t.priority ] ?? 1,
+	}[ by ];
+	if ( ! key ) {
+		return tickets;
+	}
+	return [ ...tickets ].sort( ( a, b ) => {
+		const x = key( a );
+		const y = key( b );
+		if ( x === y ) {
+			return ( b.updated_at || '' ).localeCompare( a.updated_at || '' );
+		}
+		return ( x > y ? 1 : -1 ) * dir;
+	} );
+}
+
 export default function Tickets( { go } ) {
 	const [ status, setStatus ] = useState( 'active' );
+	const [ sort, setSort ] = useStored( 'tickets-sort', {
+		by: 'updated',
+		order: 'desc',
+	} );
+	const [ perPage, setPerPage ] = useStored( 'tickets-per-page', 10 );
+	const [ page, setPage ] = useState( 1 );
 	const { data, error, loading, reload } = useApi(
 		addQueryArgs( 'admin/tickets', { status } )
 	);
@@ -28,6 +70,10 @@ export default function Tickets( { go } ) {
 	if ( ! data ) {
 		return <Loading />;
 	}
+	const sorted = sortTickets( data.tickets, sort.by, sort.order );
+	const pages = Math.max( 1, Math.ceil( sorted.length / perPage ) );
+	const current = Math.min( page, pages );
+	const shown = sorted.slice( ( current - 1 ) * perPage, current * perPage );
 	return (
 		<>
 			<PageHead
@@ -105,10 +151,23 @@ export default function Tickets( { go } ) {
 				bodyClass={ null }
 				title={ boot.supportName }
 				action={
+					<div className="hdh-toolbar">
+					<SortControl
+						options={ SORTS }
+						value={ sort.by }
+						order={ sort.order }
+						onChange={ ( by, order ) => {
+							setSort( { by, order } );
+							setPage( 1 );
+						} }
+					/>
 					<Segmented
 						label={ __( 'Show', 'helpdesk-hero' ) }
 						value={ status }
-						onChange={ setStatus }
+						onChange={ ( v ) => {
+							setStatus( v );
+							setPage( 1 );
+						} }
 						options={ [
 							{
 								value: 'active',
@@ -124,6 +183,7 @@ export default function Tickets( { go } ) {
 							},
 						] }
 					/>
+					</div>
 				}
 			>
 				{ ! data.tickets.length ? (
@@ -173,7 +233,7 @@ export default function Tickets( { go } ) {
 								</tr>
 							</thead>
 							<tbody>
-								{ data.tickets.map( ( t ) => (
+								{ shown.map( ( t ) => (
 									<tr
 										key={ t.id }
 										className="hdh-row-link"
@@ -218,7 +278,11 @@ export default function Tickets( { go } ) {
 										<td>
 											<TicketStatus
 												status={ t.status }
-												labels={ STATUS_LABELS }
+												labels={
+								t.status_label
+									? { ...STATUS_LABELS, [ t.status ]: t.status_label }
+									: STATUS_LABELS
+								}
 											/>
 										</td>
 										<td>
@@ -238,6 +302,16 @@ export default function Tickets( { go } ) {
 								) ) }
 							</tbody>
 						</table>
+						<Pager
+							page={ current }
+							perPage={ perPage }
+							total={ sorted.length }
+							onPage={ setPage }
+							onPer={ ( n ) => {
+								setPerPage( n );
+								setPage( 1 );
+							} }
+						/>
 					</div>
 				) }
 			</Card>

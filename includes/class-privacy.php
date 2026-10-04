@@ -125,6 +125,7 @@ final class Helpdesk_Hero_Privacy {
 		global $wpdb;
 		$removed = 0;
 		foreach ( self::tickets_for( $email ) as $ticket ) {
+			Helpdesk_Hero_Attachments::delete_for_ticket( (int) $ticket['id'] );
 			$wpdb->delete( Helpdesk_Hero_DB::table( 'messages' ), array( 'ticket_id' => (int) $ticket['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->delete( Helpdesk_Hero_DB::table( 'tickets' ), array( 'id' => (int) $ticket['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			++$removed;

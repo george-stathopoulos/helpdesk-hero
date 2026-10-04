@@ -23,6 +23,25 @@ final class Helpdesk_Hero_Access {
 	const CAP          = 'helpdesk_hero_manage';
 
 	/**
+	 * End time stored for access with no end date.
+	 */
+	const FOREVER = '9999-12-31 23:59:59';
+
+	/**
+	 * True while revoke() deletes accounts, so their deletion doesn't start another revoke.
+	 *
+	 * @var bool
+	 */
+	private static $ending = false;
+
+	/**
+	 * The account being deleted that caused a revoke: WordPress is already deleting it.
+	 *
+	 * @var int
+	 */
+	private static $deleting = 0;
+
+	/**
 	 * Cached grant for the current user.
 	 *
 	 * @var array|null|false
@@ -41,6 +60,9 @@ final class Helpdesk_Hero_Access {
 		add_filter( 'map_meta_cap', array( __CLASS__, 'protect' ), 100, 4 );
 		add_action( self::CRON, array( __CLASS__, 'expire_due' ) );
 		add_action( 'wp_login', array( __CLASS__, 'on_login' ), 10, 2 );
+		add_action( 'delete_user', array( __CLASS__, 'on_user_deleted' ) );
+		add_action( 'wpmu_delete_user', array( __CLASS__, 'on_user_deleted' ) );
+		add_action( 'remove_user_from_blog', array( __CLASS__, 'on_user_deleted' ) );
 	}
 
 	/**
@@ -112,6 +134,22 @@ final class Helpdesk_Hero_Access {
 			$role = 'restricted_admin';
 		}
 
+		// One access per site: while it is active, granting again changes it instead.
+		$active = self::active();
+		if ( $active ) {
+			$changed = self::change( (int) $active['id'], $hours, $role, $resolved['allow_plugins'] );
+			if ( is_wp_error( $changed ) ) {
+				return $changed;
+			}
+			$url = self::new_link( (int) $active['id'] );
+			do_action( 'helpdesk_hero_access_changed', (int) $active['id'], 'changed' );
+			return array(
+				'grant'    => self::get( (int) $active['id'] ),
+				'url'      => is_wp_error( $url ) ? '' : $url,
+				'existing' => true,
+			);
+		}
+
 		$user_id = self::create_user( $role, sprintf( /* translators: %s: support team name */ __( '%s (temporary access)', 'helpdesk-hero' ), Helpdesk_Hero_Settings::support_name() ) );
 		if ( is_wp_error( $user_id ) ) {
 			return $user_id;
@@ -125,7 +163,7 @@ final class Helpdesk_Hero_Access {
 				'ticket_id'     => (int) ( $args['ticket_id'] ?? 0 ),
 				'role'          => $role,
 				'allow_plugins' => $resolved['allow_plugins'] ? 1 : 0,
-				'expires_at'    => Helpdesk_Hero_DB::now( $hours * HOUR_IN_SECONDS ),
+				'expires_at'    => self::expiry( $hours ),
 				'created_by'    => get_current_user_id(),
 				'created_at'    => Helpdesk_Hero_DB::now(),
 				'note'          => substr( sanitize_text_field( (string) ( $args['note'] ?? '' ) ), 0, 255 ),
@@ -156,9 +194,75 @@ final class Helpdesk_Hero_Access {
 		do_action( 'helpdesk_hero_access_granted', $grant_id, $args );
 
 		return array(
-			'grant' => self::get( $grant_id ),
-			'url'   => $url,
+			'grant'    => self::get( $grant_id ),
+			'url'      => $url,
+			'existing' => false,
 		);
+	}
+
+	/**
+	 * Change the active access: a new end time counted from now, and possibly a different role or
+	 * plugin permission. Every account under the access gets the new role.
+	 *
+	 * @param int    $grant_id      Grant.
+	 * @param int    $hours         Hours from now.
+	 * @param string $role          Role.
+	 * @param bool   $allow_plugins Plugin installs.
+	 * @return true|WP_Error
+	 */
+	public static function change( $grant_id, $hours, $role, $allow_plugins ) {
+		global $wpdb;
+		$grant = self::get( $grant_id );
+		if ( ! self::is_active( $grant ) ) {
+			return new WP_Error( 'helpdesk_hero_inactive', __( 'Support access is not active.', 'helpdesk-hero' ) );
+		}
+		if ( Helpdesk_Hero_Policy::PERMANENT === (int) $hours ) {
+			$expires_at = self::FOREVER;
+		} else {
+			$ceiling    = time() + (int) Helpdesk_Hero_Policy::section( 'access' )['max_hours'] * HOUR_IN_SECONDS;
+			$expires_at = gmdate( 'Y-m-d H:i:s', min( $ceiling, time() + max( 1, (int) $hours ) * HOUR_IN_SECONDS ) );
+		}
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			Helpdesk_Hero_DB::table( 'grants' ),
+			array(
+				'expires_at'        => $expires_at,
+				'role'              => $role,
+				'allow_plugins'     => $allow_plugins ? 1 : 0,
+				'extension_request' => null,
+			),
+			array( 'id' => (int) $grant_id )
+		);
+		if ( $role !== $grant['role'] ) {
+			$wp_role = 'restricted_admin' === $role ? 'administrator' : $role;
+			foreach ( array_unique( array_filter( array_merge( array( (int) $grant['user_id'] ), self::users_for_grant( (int) $grant_id ) ) ) ) as $user_id ) {
+				$user = get_userdata( $user_id );
+				if ( $user ) {
+					$user->set_role( $wp_role );
+				}
+			}
+		}
+		Helpdesk_Hero_Monitor::record(
+			'access',
+			'access_changed',
+			'',
+			array(
+				'hours' => (int) $hours,
+				'role'  => $role,
+			),
+			(int) $grant_id
+		);
+		self::$current = false;
+		return true;
+	}
+
+	/**
+	 * The site's active access, if any. There is at most one; it serves every open ticket.
+	 *
+	 * @return array|null
+	 */
+	public static function active() {
+		$rows = self::all( true, 1 );
+		return $rows ? $rows[0] : null;
 	}
 
 	/**
@@ -322,18 +426,14 @@ final class Helpdesk_Hero_Access {
 	}
 
 	/**
-	 * The active grant for a ticket.
+	 * The access support can use for a ticket: the site's active access, shared by all tickets.
 	 *
-	 * @param int $ticket_id Ticket.
+	 * @param int $ticket_id Ticket (kept for callers; access is per site).
 	 * @return array|null
 	 */
 	public static function for_ticket( $ticket_id ) {
-		foreach ( self::all( true ) as $grant ) {
-			if ( (int) $grant['ticket_id'] === (int) $ticket_id ) {
-				return $grant;
-			}
-		}
-		return null;
+		unset( $ticket_id );
+		return self::active();
 	}
 
 	/**
@@ -344,6 +444,26 @@ final class Helpdesk_Hero_Access {
 	 */
 	public static function is_active( $grant ) {
 		return $grant && empty( $grant['revoked_at'] ) && strtotime( $grant['expires_at'] . ' UTC' ) > time();
+	}
+
+	/**
+	 * Whether a grant has no end date (it lasts until someone ends it).
+	 *
+	 * @param array|null $grant Grant.
+	 * @return bool
+	 */
+	public static function is_permanent( $grant ) {
+		return $grant && self::FOREVER === (string) $grant['expires_at'];
+	}
+
+	/**
+	 * End time for a new grant.
+	 *
+	 * @param int $hours Hours, or Helpdesk_Hero_Policy::PERMANENT.
+	 * @return string GMT datetime.
+	 */
+	private static function expiry( $hours ) {
+		return Helpdesk_Hero_Policy::PERMANENT === (int) $hours ? self::FOREVER : Helpdesk_Hero_DB::now( (int) $hours * HOUR_IN_SECONDS );
 	}
 
 	/**
@@ -392,7 +512,7 @@ final class Helpdesk_Hero_Access {
 	public static function extend( $grant_id, $hours ) {
 		global $wpdb;
 		$grant = self::get( $grant_id );
-		if ( ! $grant || ! empty( $grant['revoked_at'] ) ) {
+		if ( ! $grant || ! empty( $grant['revoked_at'] ) || self::is_permanent( $grant ) ) {
 			return false;
 		}
 		$base    = max( time(), strtotime( $grant['expires_at'] . ' UTC' ) );
@@ -426,7 +546,7 @@ final class Helpdesk_Hero_Access {
 	public static function request_extension( $grant_id, $hours, $reason = '', $by = '' ) {
 		global $wpdb;
 		$grant = self::get( $grant_id );
-		if ( ! $grant || ! empty( $grant['revoked_at'] ) ) {
+		if ( ! $grant || ! empty( $grant['revoked_at'] ) || self::is_permanent( $grant ) ) {
 			return false;
 		}
 		if ( 'auto' === Helpdesk_Hero_Policy::section( 'access' )['extension'] ) {
@@ -482,9 +602,10 @@ final class Helpdesk_Hero_Access {
 	 * End a grant now and delete its user. Content the user created is given to the person who granted access.
 	 *
 	 * @param int    $grant_id Grant.
-	 * @param string $reason   revoked | expired.
+	 * @param string $reason   revoked (site owner) | expired | support_ended | closed (no open tickets left).
+	 * @param string $by       Who ended it, when support did.
 	 */
-	public static function revoke( $grant_id, $reason = 'revoked' ) {
+	public static function revoke( $grant_id, $reason = 'revoked', $by = '' ) {
 		global $wpdb;
 		$grant = self::get( $grant_id );
 		if ( ! $grant ) {
@@ -500,14 +621,21 @@ final class Helpdesk_Hero_Access {
 				),
 				array( 'id' => $grant_id )
 			);
-			Helpdesk_Hero_Monitor::record( 'access', 'expired' === $reason ? 'access_expired' : 'access_revoked', '', array(), $grant_id );
+			$actions = array(
+				'expired'       => 'access_expired',
+				'support_ended' => 'access_ended_support',
+				'closed'        => 'access_ended_closed',
+				'deleted'       => 'access_ended_deleted',
+			);
+			Helpdesk_Hero_Monitor::record( 'access', $actions[ $reason ] ?? 'access_revoked', '', array_filter( array( 'by' => $by ) ), $grant_id );
 		}
 		// Every account created for this access goes: the team account and each supporter's own.
 		$user_ids = array_unique( array_filter( array_merge( array( (int) $grant['user_id'] ), self::users_for_grant( (int) $grant_id ) ) ) );
 		require_once ABSPATH . 'wp-admin/includes/user.php';
 		$reassign = (int) $grant['created_by'] && get_userdata( (int) $grant['created_by'] ) ? (int) $grant['created_by'] : null;
+		self::$ending = true;
 		foreach ( $user_ids as $user_id ) {
-			if ( ! get_userdata( $user_id ) ) {
+			if ( self::$deleting === $user_id || ! get_userdata( $user_id ) ) {
 				continue;
 			}
 			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
@@ -522,8 +650,29 @@ final class Helpdesk_Hero_Access {
 				wp_delete_user( $user_id, $reassign );
 			}
 		}
+		self::$ending  = false;
 		self::$current = false;
 		do_action( 'helpdesk_hero_access_changed', $grant_id, $reason );
+	}
+
+	/**
+	 * A support account was deleted (by the site owner on the Users screen, or by anyone else):
+	 * the access it belongs to ends too, and its other support accounts are deleted.
+	 *
+	 * @param int $user_id User being deleted or removed from this site.
+	 */
+	public static function on_user_deleted( $user_id ) {
+		if ( self::$ending ) {
+			return;
+		}
+		$grant_id = (int) get_user_meta( (int) $user_id, self::META, true );
+		$grant    = $grant_id ? self::get( $grant_id ) : null;
+		if ( ! $grant || ! empty( $grant['revoked_at'] ) ) {
+			return;
+		}
+		self::$deleting = (int) $user_id;
+		self::revoke( $grant_id, 'deleted' );
+		self::$deleting = 0;
 	}
 
 	/**
@@ -542,8 +691,15 @@ final class Helpdesk_Hero_Access {
 	 */
 	public static function login_screen() {
 		$token = isset( $_REQUEST['token'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- the single-use token is the credential.
-		$grant = self::grant_for_token( $token );
 		$error = null;
+		// Slow down guessing: 10 wrong links per address per hour.
+		$ip       = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$tries    = 'helpdesk_hero_login_fail_' . md5( (string) $ip );
+		$failures = (int) get_transient( $tries );
+		$grant    = $failures >= 10 ? new WP_Error( 'helpdesk_hero_rate', __( 'Too many invalid support login links from your address. Try again in an hour, or ask the site owner for a new link.', 'helpdesk-hero' ) ) : self::grant_for_token( $token );
+		if ( is_wp_error( $grant ) && 'helpdesk_hero_link' === $grant->get_error_code() ) {
+			set_transient( $tries, $failures + 1, HOUR_IN_SECONDS );
+		}
 
 		if ( is_wp_error( $grant ) ) {
 			$error = $grant;
@@ -563,12 +719,18 @@ final class Helpdesk_Hero_Access {
 			$expires = strtotime( $grant['expires_at'] . ' UTC' );
 			echo '<form method="post" action="' . esc_url( add_query_arg( array( 'action' => self::LOGIN_ACTION ), wp_login_url() ) ) . '">';
 			echo '<p>' . esc_html(
-				sprintf(
-					/* translators: 1: site name, 2: time left */
-					__( 'Log in to %1$s with temporary support access. Access ends in %2$s.', 'helpdesk-hero' ),
-					wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
-					human_time_diff( time(), $expires )
-				)
+				self::is_permanent( $grant )
+					? sprintf(
+						/* translators: %s: site name */
+						__( 'Log in to %s with support access. This access has no end date; the site owner can end it at any time.', 'helpdesk-hero' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					)
+					: sprintf(
+						/* translators: 1: site name, 2: time left */
+						__( 'Log in to %1$s with temporary support access. Access ends in %2$s.', 'helpdesk-hero' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
+						human_time_diff( time(), $expires )
+					)
 			) . '</p>';
 			echo '<p style="margin:12px 0">' . esc_html__( 'This link works once. Everything you do while logged in is recorded and shown to the site owner.', 'helpdesk-hero' ) . '</p>';
 			echo '<input type="hidden" name="token" value="' . esc_attr( $token ) . '">';
@@ -630,7 +792,8 @@ final class Helpdesk_Hero_Access {
 		wp_set_auth_cookie( $user->ID, false, is_ssl() );
 		Helpdesk_Hero_Monitor::record( 'access', 'support_login', $user->user_login, array( 'user_agent' => isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 200 ) : '' ), (int) $grant['id'] );
 		do_action( 'wp_login', $user->user_login, $user ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's login hook, fired as wp_signon() does.
-		wp_safe_redirect( admin_url() );
+		// Straight to the Support session page: the tickets, their problem spots and troubleshooting.
+		wp_safe_redirect( admin_url( 'admin.php?page=' . Helpdesk_Hero_Admin::SLUG ) );
 		exit;
 	}
 

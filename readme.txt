@@ -4,7 +4,7 @@ Tags: support, helpdesk, temporary login, diagnostics, troubleshooting
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,16 @@ No. It records a few events (updates, settings changes, errors) as they happen, 
 5. Activity: everything support did on your site.
 
 == Changelog ==
+
+= 2.1.0 =
+* Pinpoint: click the problem, or drag a box around it, on any page (site or dashboard). Up to 5 labelled spots per report, sent to a new or an open ticket, with the page's errors and failed requests. Support opens the page with your spot highlighted; no screenshots are taken.
+* A Pinpoint page with a short animation, how to use it, and an on/off switch.
+* Connect to your support hub from a connection link, with live status.
+* Support sessions: support lands on a Support session page with your open tickets, their problem spots and troubleshooting mode, and can leave the session or end access.
+* One support access per site, shared by your open tickets. Access with no end date when your support's policy offers it.
+* Deleting a support account ends the access it belongs to, and every support account is deleted.
+* Light text formatting in messages (bold, italic, links, lists, code), kept as plain text so emails stay readable.
+* Security: Ed25519 signing keys (upgraded automatically), keys encrypted at rest, rate-limited login links, HTTPS only.
 
 = 2.0.0 =
 * Connects to your support team's Helpdesk Hero Hub, which now sets the support policy.

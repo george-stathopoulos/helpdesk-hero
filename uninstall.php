@@ -23,11 +23,11 @@ if ( $helpdesk_hero_users ) {
 	}
 }
 
-foreach ( array( 'tickets', 'messages', 'grants', 'log' ) as $helpdesk_hero_table ) {
+foreach ( array( 'tickets', 'messages', 'grants', 'log', 'attachments' ) as $helpdesk_hero_table ) {
 	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . 'helpdesk_hero_' . $helpdesk_hero_table ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 }
 
-foreach ( array( 'helpdesk_hero_settings', 'helpdesk_hero_secrets', 'helpdesk_hero_db', 'helpdesk_hero_notices', 'helpdesk_hero_troubleshoot' ) as $helpdesk_hero_option ) {
+foreach ( array( 'helpdesk_hero_settings', 'helpdesk_hero_secrets', 'helpdesk_hero_crypto_check', 'helpdesk_hero_db', 'helpdesk_hero_notices', 'helpdesk_hero_troubleshoot' ) as $helpdesk_hero_option ) {
 	delete_option( $helpdesk_hero_option );
 }
 
@@ -38,4 +38,16 @@ if ( file_exists( $helpdesk_hero_mu ) ) {
 
 foreach ( array( 'helpdesk_hero_prune', 'helpdesk_hero_expire_access', 'helpdesk_hero_pull' ) as $helpdesk_hero_hook ) {
 	wp_clear_scheduled_hook( $helpdesk_hero_hook );
+}
+
+// Attached files.
+$helpdesk_hero_uploads = wp_upload_dir( null, false );
+$helpdesk_hero_files   = trailingslashit( $helpdesk_hero_uploads['basedir'] ) . 'helpdesk-hero-files';
+if ( is_dir( $helpdesk_hero_files ) ) {
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	WP_Filesystem();
+	global $wp_filesystem;
+	if ( $wp_filesystem ) {
+		$wp_filesystem->delete( $helpdesk_hero_files, true );
+	}
 }

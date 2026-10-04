@@ -54,7 +54,7 @@ export default function GrantPanel( {
 					approve: __( 'Extension approved', 'helpdesk-hero' ),
 					decline: __( 'Extension declined', 'helpdesk-hero' ),
 					revoke: __(
-						'Access ended. The support account was deleted.',
+						'Access ended. Every support account was deleted.',
 						'helpdesk-hero'
 					),
 				};
@@ -144,7 +144,24 @@ export default function GrantPanel( {
 			<KeyValues
 				rows={ [
 					[ __( 'Access level', 'helpdesk-hero' ), grant.role_label ],
-					[ __( 'Account', 'helpdesk-hero' ), grant.account || '—' ],
+					[
+						__( 'Support accounts', 'helpdesk-hero' ),
+						( grant.accounts || [] ).length
+							? grant.accounts.map( ( a ) => a.name ).join( ', ' )
+							: grant.account || '—',
+					],
+					grant.active && ( grant.tickets || [] ).length
+						? [
+								__( 'Used by', 'helpdesk-hero' ),
+								<span key="t" className="hdh-stack" style={ { gap: 2 } }>
+									{ grant.tickets.map( ( t ) => (
+										<a key={ t.id } href={ `#/ticket/${ t.id }` }>
+											{ t.subject }
+										</a>
+									) ) }
+								</span>,
+						  ]
+						: null,
 					[ __( 'Login link', 'helpdesk-hero' ), linkLabel ],
 					[
 						__( 'Granted', 'helpdesk-hero' ),
@@ -163,8 +180,17 @@ export default function GrantPanel( {
 			/>
 
 			{ grant.active && (
+				<p className="hdh-muted" style={ { fontSize: 12.5, margin: 0 } }>
+					{ __(
+						'One access for your whole site, shared by all open tickets. When it ends (it runs out, you or support end it, or the last ticket closes if your support team’s policy says so), every support account is deleted.',
+						'helpdesk-hero'
+					) }
+				</p>
+			) }
+			{ grant.active && (
 				<div className="hdh-row">
 					{ policy.customer_extend &&
+						! grant.permanent &&
 						durations &&
 						durations.length > 0 && (
 							<>
@@ -179,7 +205,7 @@ export default function GrantPanel( {
 										setHours( e.target.value )
 									}
 								>
-									{ durations.map( ( d ) => (
+									{ durations.filter( ( d ) => d.value !== 999999 ).map( ( d ) => (
 										<option
 											key={ d.value }
 											value={ d.value }
@@ -220,7 +246,7 @@ export default function GrantPanel( {
 						onClick={ () =>
 							confirmAction(
 								__(
-									'End support access now? The support account is deleted and logged out.',
+									'End support access now? It ends for every ticket, and every support account on this site is logged out and deleted. You can give access again later; new accounts are made then.',
 									'helpdesk-hero'
 								),
 								{

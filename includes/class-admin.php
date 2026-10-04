@@ -26,6 +26,8 @@ final class Helpdesk_Hero_Admin {
 	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'keys_notice' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'link_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_filter( 'admin_body_class', array( __CLASS__, 'body_class' ) );
 		add_action( 'admin_bar_menu', array( __CLASS__, 'admin_bar' ), 100 );
@@ -130,13 +132,17 @@ final class Helpdesk_Hero_Admin {
 					'userName'    => $user->display_name,
 					'userEmail'   => $user->user_email,
 					'connected'   => Helpdesk_Hero_Settings::is_connected(),
+					// From a connection link: the code to fill in on the Connect screen.
+					'connectCode' => isset( $_GET['hdh_code'] ) ? preg_replace( '/[^A-Za-z0-9._-]/', '', sanitize_text_field( wp_unslash( $_GET['hdh_code'] ) ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only pre-fills a form; connecting still needs a click.
 					'supportName' => Helpdesk_Hero_Settings::support_name(),
 					'centerName'  => ! empty( Helpdesk_Hero_Settings::get( 'branding' )['center'] ) ? Helpdesk_Hero_Settings::get( 'branding' )['center'] : __( 'Get Help', 'helpdesk-hero' ),
 					'branding'    => (array) Helpdesk_Hero_Settings::get( 'branding' ),
+					'billing'     => ! empty( Helpdesk_Hero_Settings::get( 'extras' )['usage'] ),
 					'isSupport'   => Helpdesk_Hero_Access::current_grant_id() > 0,
 					'aiEnabled'   => Helpdesk_Hero_AI::available(),
 					'localAi'     => Helpdesk_Hero_AI::local_ai(),
 					'gmtOffset'   => (float) get_option( 'gmt_offset' ),
+					'pinpoint'    => Helpdesk_Hero_Pinpoint::state(),
 				)
 			) . ';',
 			'before'
@@ -172,5 +178,44 @@ final class Helpdesk_Hero_Admin {
 	public static function center_name() {
 		$branding = (array) Helpdesk_Hero_Settings::get( 'branding' );
 		return ! empty( $branding['center'] ) ? (string) $branding['center'] : __( 'Get Help', 'helpdesk-hero' );
+	}
+
+	/**
+	 * A connection link opened on a site that is already connected: say so instead of silently
+	 * ignoring it.
+	 */
+	public static function link_notice() {
+		if ( empty( $_GET['hdh_code'] ) || ! current_user_can( Helpdesk_Hero_Access::CAP ) || ! Helpdesk_Hero_Settings::is_connected() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice.
+			return;
+		}
+		printf(
+			'<div class="notice notice-info"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: support team name */
+					__( 'This site is already connected to %s, so the connection link wasn’t used. To connect to a different support team, disconnect first under Settings.', 'helpdesk-hero' ),
+					Helpdesk_Hero_Settings::support_name()
+				)
+			)
+		);
+	}
+
+	/**
+	 * Warn when stored keys can't be decrypted because wp-config.php keys changed.
+	 */
+	public static function keys_notice() {
+		if ( ! current_user_can( 'manage_options' ) || ! Helpdesk_Hero_Crypto::key_changed() ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-error"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: PHP constant name */
+					__( 'Helpdesk Hero can’t read its connection keys: the security keys in wp-config.php changed since they were saved. Restore the previous keys in wp-config.php, or disconnect under Get Help › Settings and connect again with a new code from your support team. To avoid this in future, define %s in wp-config.php.', 'helpdesk-hero' ),
+					'HELPDESK_HERO_ENCRYPTION_KEY'
+				)
+			)
+		);
 	}
 }

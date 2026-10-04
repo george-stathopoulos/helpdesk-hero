@@ -3,6 +3,36 @@
  * Inline stroke icons (24px grid, 1.75 stroke), drawn for this plugin.
  */
 const PATHS = {
+	file: (
+		<>
+			<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+			<path d="M14 3v5h5" />
+		</>
+	),
+	paperclip: (
+		<path d="m20 11.5-8.2 8.2a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+	),
+	users: (
+		<>
+			<circle cx="9" cy="8" r="3.5" />
+			<path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+			<path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6" />
+		</>
+	),
+	timer: (
+		<>
+			<circle cx="12" cy="13" r="8" />
+			<path d="M12 9v4l2.5 2.5M10 2h4" />
+		</>
+	),
+	merge: (
+		<>
+			<circle cx="6" cy="5" r="2" />
+			<circle cx="6" cy="19" r="2" />
+			<circle cx="18" cy="12" r="2" />
+			<path d="M6 7v10M6 9c0 3 3 3 6 3h4" />
+		</>
+	),
 	download: (
 		<>
 			<path d="M12 4v11M7 10l5 5 5-5" />
@@ -253,6 +283,48 @@ const PATHS = {
 		<>
 			<circle cx="12" cy="12" r="9" />
 			<path d="m5.7 5.7 12.6 12.6" />
+		</>
+	),
+	chevron: <path d="m6 9 6 6 6-6" />,
+	rocket: (
+		<>
+			<path d="M12 15c4-2.5 6.5-6.5 6.5-11.5-5 0-9 2.5-11.5 6.5L4 11l2.5 1.5L9 15l1.5 2.5L13 15" />
+			<circle cx="14.5" cy="9.5" r="1.6" />
+			<path d="M7 17c-1.5.5-2.5 2-2.5 3.5 1.5 0 3-1 3.5-2.5" />
+		</>
+	),
+	bold: <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />,
+	italic: <path d="M14 5h-4M14 19h-4M14 5l-4 14" />,
+	list: (
+		<>
+			<path d="M9 6h11M9 12h11M9 18h11" />
+			<circle cx="4.5" cy="6" r="1" />
+			<circle cx="4.5" cy="12" r="1" />
+			<circle cx="4.5" cy="18" r="1" />
+		</>
+	),
+	numbers: (
+		<>
+			<path d="M10 6h10M10 12h10M10 18h10" />
+			<path d="M4 4.5h1.5V9M4 9h3M4 14.5a1.5 1.5 0 0 1 3 .5c0 1-3 2-3 3.5h3" />
+		</>
+	),
+	code: <path d="m8 7-5 5 5 5M16 7l5 5-5 5" />,
+	receipt: (
+		<>
+			<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+			<path d="M9 8h6M9 12h6M9 16h3" />
+		</>
+	),
+	bookmark: (
+		<>
+			<path d="M6 3h12v18l-6-4-6 4V3Z" />
+		</>
+	),
+	pin: (
+		<>
+			<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z" />
+			<circle cx="12" cy="10" r="2.5" />
 		</>
 	),
 	eye: (

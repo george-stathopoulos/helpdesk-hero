@@ -1,0 +1,182 @@
+/* Helpdesk Hero Pinpoint: picking overlay, confirmation panel and support highlight. */
+
+.hdh-pin-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 999990;
+	cursor: crosshair;
+	background: rgba(17, 17, 17, 0.06);
+}
+
+.hdh-pin-box {
+	position: fixed;
+	z-index: 999991;
+	box-sizing: border-box;
+	border: 2px solid #e5484d;
+	border-radius: 4px;
+	background: rgba(229, 72, 77, 0.08);
+	pointer-events: none;
+	transition: all 0.06s ease-out;
+}
+
+.hdh-pin-box.is-drag {
+	border-style: dashed;
+	transition: none;
+}
+
+.hdh-pin-box.is-highlight {
+	box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.28);
+	animation: hdh-pin-pulse 1.4s ease-out 2;
+}
+
+@keyframes hdh-pin-pulse {
+	50% {
+		border-color: #ffb224;
+	}
+}
+
+.hdh-pin-tip,
+.hdh-pin-panel,
+.hdh-pin-label {
+	position: fixed;
+	z-index: 999992;
+	box-sizing: border-box;
+	border-radius: 10px;
+	background: #1a1a1a;
+	color: #fff;
+	font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.hdh-pin-tip {
+	top: 44px;
+	left: 50%;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: calc(100vw - 32px);
+	padding: 10px 12px 10px 16px;
+	transform: translateX(-50%);
+}
+
+.hdh-pin-panel {
+	right: 16px;
+	bottom: 16px;
+	width: min(380px, calc(100vw - 32px));
+	padding: 16px;
+	background: #fff;
+	color: #1a1a1a;
+}
+
+.hdh-pin-panel p {
+	margin: 8px 0;
+}
+
+.hdh-pin-panel__title {
+	font-size: 15px;
+}
+
+.hdh-pin-error {
+	color: #c62a2f;
+}
+
+.hdh-pin-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.hdh-pin-btn {
+	padding: 6px 12px;
+	border: 1px solid rgba(127, 127, 127, 0.4);
+	border-radius: 7px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.hdh-pin-btn.is-primary {
+	border-color: #3e63dd;
+	background: #3e63dd;
+	color: #fff;
+}
+
+.hdh-pin-btn:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.hdh-pin-label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px 6px 12px;
+	font-weight: 600;
+}
+
+.hdh-pin-label.is-fixed {
+	top: 44px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hdh-pin-box,
+	.hdh-pin-box.is-highlight {
+		transition: none;
+		animation: none;
+	}
+}
+
+/* Marks of spots already picked: they scroll with the page and carry a number. */
+.hdh-pin-box.is-page {
+	position: absolute;
+	transition: none;
+}
+
+.hdh-pin-num {
+	position: absolute;
+	top: -11px;
+	left: -11px;
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: #e5484d;
+	color: #fff;
+	font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.hdh-pin-muted {
+	color: #666;
+	font-size: 12.5px;
+}
+
+.hdh-pin-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 10px 0 0;
+	font-size: 12.5px;
+	font-weight: 600;
+}
+
+.hdh-pin-field input,
+.hdh-pin-field select {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+	padding: 7px 9px;
+	border: 1px solid #d4d4d4;
+	border-radius: 7px;
+	background: #fff;
+	color: #1a1a1a;
+	font: 400 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.hdh-pin-row {
+	flex-wrap: wrap;
+}
