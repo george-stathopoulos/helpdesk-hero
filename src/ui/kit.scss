@@ -2431,3 +2431,85 @@
 		margin-bottom: 0;
 	}
 }
+
+/* --------------------------------------------------------------------------
+   Support console (the customer plugin, for support accounts)
+   -------------------------------------------------------------------------- */
+.hdh-root .hdh-console__session {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.hdh-root .hdh-console__tickets {
+	display: grid;
+	grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+	align-items: start;
+	gap: 18px;
+
+	@media (max-width: 960px) {
+		grid-template-columns: 1fr;
+	}
+}
+
+.hdh-root .hdh-console__list {
+	position: sticky;
+	top: 46px;
+	display: grid;
+	gap: 8px;
+
+	@media (max-width: 960px) {
+		position: static;
+	}
+}
+
+.hdh-root .hdh-console__item {
+	display: grid;
+	gap: 4px;
+	padding: 12px 14px;
+	border: 1px solid var(--hdh-border);
+	border-radius: 12px;
+	background: var(--hdh-surface);
+	color: var(--hdh-ink);
+	font: inherit;
+	font-size: 13px;
+	text-align: left;
+	cursor: pointer;
+
+	&:hover {
+		border-color: var(--hdh-border-strong);
+	}
+
+	&.is-active {
+		border-color: var(--hdh-accent);
+		box-shadow: inset 3px 0 0 var(--hdh-accent);
+	}
+}
+
+.hdh-root .hdh-console__item-top {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+
+	strong {
+		font-size: 14px;
+	}
+}
+
+.hdh-root .hdh-console__ticket-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 14px;
+}
+
+.hdh-root .hdh-console__subject {
+	margin: 0;
+	font-size: 20px;
+	line-height: 1.3;
+}

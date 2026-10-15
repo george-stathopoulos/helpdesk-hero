@@ -76,4 +76,4 @@ Yes: the [live demo](https://george-stathopoulos.github.io/helpdesk-hero/demo/) 
 
 ### Can support reply or open tickets while logged in to my site?
 
-No. While logged in to a customer's site, support sees a read-only **Support session** page instead of the help center, and a notice on every screen reminding them the session is recorded. Replies come from the support hub.
+No. While logged in to a customer's site, support gets the **Support console** instead of the help center: the site's tickets (read-only, with the customer's problem spots), site details, debugging tools and troubleshooting mode, and a notice on every screen reminding them the session is recorded. Replies come from the support hub.

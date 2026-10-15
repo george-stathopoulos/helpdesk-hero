@@ -27,9 +27,14 @@ The account you get:
 Support works on the site, and talks to the customer only from the hub:
 
 - A notice at the top of every admin screen says you're remotely accessing the site as your team, what the site owner will see in the activity log under your policy, and how long access lasts.
-- The customer's help center is replaced by a read-only **Support session** page: the ticket you're there for, your access level, what's recorded, troubleshooting mode and **Log out**. Support can't open tickets, reply or change anything in the help center on the customer's behalf.
+- Instead of the customer's help center, you get the **Support console**, with how long access lasts, **Leave session** and **End access** at the top, and four tabs:
+  - **Tickets:** the site's open tickets, the one you were let in for first. Each shows its status, priority, tags, the customer's problem spots with **Open and highlight**, and the full conversation (read-only), with **Reply in the hub** to answer from your hub.
+  - **Site details:** health checks and the site's setup, ready to copy.
+  - **Debugging:** the end of the debug log with search, errors caught on the site, scheduled tasks and debugging settings.
+  - **Troubleshoot:** troubleshooting mode (below).
+- Support can't open tickets, reply or change anything in the help center on the customer's behalf: replies come from the hub.
 
-![The Support session page and notice on a customer's site.](images/site-support-session.png)
+![The Support console on a customer's site.](images/site-support-session.png)
 
 ## Asking for more time
 

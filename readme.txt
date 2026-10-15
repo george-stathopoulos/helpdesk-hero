@@ -4,7 +4,7 @@ Tags: support, helpdesk, temporary login, diagnostics, troubleshooting
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,9 @@ No. It records a few events (updates, settings changes, errors) as they happen, 
 5. Activity: everything support did on your site.
 
 == Changelog ==
+
+= 2.2.0 =
+* Support console: when your support team logs in, they get their own console instead of your help center, with your open tickets (the conversation and your problem spots), site details, debugging tools and troubleshooting mode. They still reply from their support hub.
 
 = 2.1.0 =
 * Pinpoint: click the problem, or drag a box around it, on any page (site or dashboard). Up to 5 labelled spots per report, sent to a new or an open ticket, with the page's errors and failed requests. Support opens the page with your spot highlighted; no screenshots are taken.

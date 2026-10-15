@@ -29,6 +29,11 @@ final class Helpdesk_Hero_Admin_REST {
 		$routes = array(
 			array( '/admin/session', 'GET', 'session', $support ),
 			array( '/admin/session/end', 'POST', 'end_session', $support ),
+			// The support console: only for support, logged in with access.
+			array( '/admin/support/tickets', 'GET', 'support_tickets', $support ),
+			array( '/admin/support/tickets/(?P<id>\d+)', 'GET', 'support_ticket', $support ),
+			array( '/admin/support/health', 'GET', 'support_health', $support ),
+			array( '/admin/support/debug', 'GET', 'support_debug', $support ),
 			array( '/admin/state', 'GET', 'state', $owner ),
 			array( '/admin/connect', 'POST', 'connect', $owner ),
 			array( '/admin/disconnect', 'POST', 'disconnect', $owner ),
@@ -940,6 +945,166 @@ final class Helpdesk_Hero_Admin_REST {
 			'ended'    => true,
 			'redirect' => home_url( '/' ),
 		);
+	}
+
+	/**
+	 * The support console: the site's open tickets, the one support was let in for first.
+	 *
+	 * @return array
+	 */
+	public static function support_tickets() {
+		$grant = Helpdesk_Hero_Access::current_grant();
+		$focus = $grant ? (int) $grant['ticket_id'] : 0;
+		$list  = array();
+		foreach ( Helpdesk_Hero_Tickets::all( 'active', 50 ) as $t ) {
+			$list[] = array(
+				'id'       => (int) $t['id'],
+				'subject'  => $t['subject'],
+				'status'   => self::support_status( $t ),
+				'priority' => $t['priority'],
+				'created'  => self::iso( $t['created_at'] ),
+				'updated'  => self::iso( $t['updated_at'] ),
+				'spots'    => count( Helpdesk_Hero_Pinpoint::of_ticket( (int) $t['id'] ) ),
+			);
+		}
+		// The ticket support was let in for comes first, even if it's no longer open.
+		if ( $focus && ! in_array( $focus, wp_list_pluck( $list, 'id' ), true ) ) {
+			$t = Helpdesk_Hero_Tickets::get( $focus );
+			if ( $t ) {
+				array_unshift(
+					$list,
+					array(
+						'id'       => (int) $t['id'],
+						'subject'  => $t['subject'],
+						'status'   => self::support_status( $t ),
+						'priority' => $t['priority'],
+						'created'  => self::iso( $t['created_at'] ),
+						'updated'  => self::iso( $t['updated_at'] ),
+						'spots'    => count( Helpdesk_Hero_Pinpoint::of_ticket( (int) $t['id'] ) ),
+					)
+				);
+			}
+		}
+		return array(
+			'focus'   => $focus,
+			'tickets' => $list,
+		);
+	}
+
+	/**
+	 * The support console: one ticket in full (read-only; support replies from the hub).
+	 *
+	 * @param WP_REST_Request $request id.
+	 * @return array|WP_Error
+	 */
+	public static function support_ticket( WP_REST_Request $request ) {
+		$t = Helpdesk_Hero_Tickets::get( (int) $request['id'] );
+		if ( ! $t ) {
+			return new WP_Error( 'helpdesk_hero_ticket', __( 'Ticket not found.', 'helpdesk-hero' ), array( 'status' => 404 ) );
+		}
+		$messages = array();
+		foreach ( Helpdesk_Hero_Tickets::messages( (int) $t['id'] ) as $m ) {
+			// From support's point of view: the customer is "them", support replies are "you".
+			$messages[] = array(
+				'id'          => (int) $m['id'],
+				'from'        => 'in' === $m['direction'] ? 'you' : ( 'system' === $m['direction'] ? 'system' : 'support' ),
+				'author'      => $m['author'],
+				'body'        => $m['body'],
+				'time'        => self::iso( $m['created_at'] ),
+				'attachments' => Helpdesk_Hero_Attachments::for_message( (int) $m['id'] ),
+			);
+		}
+		$spots = array_map(
+			static function ( $s ) {
+				return array_merge( $s, array( 'highlight' => add_query_arg( 'hdh_pin', $s['id'], $s['url'] ) ) );
+			},
+			Helpdesk_Hero_Pinpoint::of_ticket( (int) $t['id'] )
+		);
+		// The customer: whoever wrote the first message (the ticket's creator may be another admin).
+		$customer = '';
+		foreach ( $messages as $m ) {
+			if ( 'support' === $m['from'] && '' !== (string) $m['author'] ) {
+				$customer = $m['author'];
+				break;
+			}
+		}
+		if ( '' === $customer && $t['created_by'] ) {
+			$author   = get_userdata( (int) $t['created_by'] );
+			$customer = $author ? $author->display_name : '';
+		}
+		return array(
+			'id'       => (int) $t['id'],
+			'subject'  => $t['subject'],
+			'status'   => self::support_status( $t ),
+			'priority' => $t['priority'],
+			'tags'     => array_values( array_filter( (array) json_decode( (string) $t['tags'], true ) ) ),
+			'priority_label' => Helpdesk_Hero_Tickets::priorities()[ $t['priority'] ] ?? $t['priority'],
+			'created'  => self::iso( $t['created_at'] ),
+			'customer' => $customer,
+			'messages' => $messages,
+			'spots'    => $spots,
+			'hub_link' => self::hub_ticket_url( (int) $t['remote_id'] ),
+		);
+	}
+
+	/**
+	 * A ticket's status as support says it (the customer's labels are written for the customer).
+	 *
+	 * @param array $t Ticket.
+	 * @return string
+	 */
+	private static function support_status( array $t ) {
+		if ( '' !== (string) $t['status_label'] ) {
+			return $t['status_label'];
+		}
+		$labels = array(
+			'open'    => __( 'Open', 'helpdesk-hero' ),
+			'pending' => __( 'Waiting on customer', 'helpdesk-hero' ),
+			'sent'    => __( 'Sent by email', 'helpdesk-hero' ),
+			'unsent'  => __( 'Not sent yet', 'helpdesk-hero' ),
+			'closed'  => __( 'Closed', 'helpdesk-hero' ),
+		);
+		return $labels[ $t['status'] ] ?? $t['status'];
+	}
+
+	/**
+	 * The ticket in the support hub's admin, from the hub's REST address.
+	 *
+	 * @param int $remote_id Ticket ID in the hub.
+	 * @return string
+	 */
+	private static function hub_ticket_url( $remote_id ) {
+		$rest = (string) Helpdesk_Hero_Settings::get( 'hub_url' );
+		if ( ! $remote_id || '' === $rest ) {
+			return '';
+		}
+		$base = preg_replace( '#(/wp-json/?.*|/index\.php.*|/?\?rest_route=.*)$#', '', $rest );
+		return trailingslashit( $base ) . 'wp-admin/admin.php?page=helpdesk-hero-hub#/ticket/' . (int) $remote_id;
+	}
+
+	/**
+	 * The support console: site details and the problems they point at.
+	 *
+	 * @return array
+	 */
+	public static function support_health() {
+		$data  = Helpdesk_Hero_Diagnostics::collect();
+		$flags = Helpdesk_Hero_Health_Flags::evaluate( $data );
+		return array(
+			'data'  => $data,
+			'flags' => $flags,
+			'text'  => Helpdesk_Hero_Diagnostics::to_text( $data, $flags ),
+		);
+	}
+
+	/**
+	 * The support console: debug log, caught errors, scheduled tasks, debugging constants.
+	 *
+	 * @param WP_REST_Request $request lines, search.
+	 * @return array
+	 */
+	public static function support_debug( WP_REST_Request $request ) {
+		return Helpdesk_Hero_Debug::state( absint( $request->get_param( 'lines' ) ) ?: 200, sanitize_text_field( (string) $request->get_param( 'search' ) ) ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 	}
 
 	/**

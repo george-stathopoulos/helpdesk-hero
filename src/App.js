@@ -9,7 +9,7 @@ import NewTicket from './pages/NewTicket';
 import Access from './pages/Access';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
-import SupportSession from './pages/SupportSession';
+import SupportConsole from './pages/SupportConsole';
 import Billing from './pages/Billing';
 import Pinpoint from './pages/Pinpoint';
 
@@ -240,14 +240,8 @@ export function Shell( { nav, current, children } ) {
 export default function App() {
 	const [ route, go ] = useRoute( 'tickets' );
 	if ( boot.isSupport ) {
-		// Support accounts never use the customer's help center.
-		return (
-			<Shell>
-				<main className="hdh-shell">
-					<SupportSession />
-				</main>
-			</Shell>
-		);
+		// Support accounts never use the customer's help center: they get their own console.
+		return <SupportConsole />;
 	}
 	if ( ! boot.connected ) {
 		return (
